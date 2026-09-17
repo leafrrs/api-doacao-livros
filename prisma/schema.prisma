@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id       Int     @id @default(autoincrement())
+  nome     String
+  email    String  @unique
+  senha    String
+  livros   Livro[] // Indica que um usuário tem uma lista de livros
+}
+
+model Livro {
+  id         Int     @id @default(autoincrement())
+  titulo     String
+  autor      String
+  descricao  String? // A interrogação significa que é opcional
+  disponivel Boolean @default(true) // Quando o livro é cadastrado, ele já entra como disponível
+  
+  // Relacionamento com o dono do livro
+  usuarioId  Int
+  dono       Usuario @relation(fields: [usuarioId], references: [id])
+}
