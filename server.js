@@ -60,15 +60,43 @@ app.post("/livros", async (req, res) => {
 });
 
 // 3. Rota para listar todos os livros (Estante Geral)
-app.get("/livros", async (req, res) => {
+app.get("/livros/buscar", async (req, res) => {
   try {
-    // Busca todos os livros e já inclui os dados de quem está doando
-    const livros = await prisma.livro.findMany({
-      include: { dono: true },
+    // 1. Pegamos o título que o usuário digitou na URL (ex: ?titulo=senhor dos aneis)
+    const tituloBuscado = req.query.titulo;
+    if (!tituloBuscado) {
+      return res
+        .status(400)
+        .json({ erro: "Por favor, informe um título para buscar." });
+    }
+    // 2. Fazemos a requisição para a API externa com o nosso "crachá"
+    const urlDaApiExterna = `https://openlibrary.org/search.json?title=${tituloBuscado}&limit=5`;
+
+    const respostaOpenLibrary = await fetch(urlDaApiExterna, {
+      headers: {
+        "User-Agent": "ProjetoAcademicoRecode/1.0", // Identificação amigável
+      },
     });
-    res.json(livros);
+
+    // 3. Transformamos a resposta deles em JSON
+    const dados = await respostaOpenLibrary.json();
+    // 4. "Limpamos" os dados (Pegamos apenas o array 'docs' e extraímos o que importa)
+    const livrosEncontrados = dados.docs.map((livro) => {
+      return {
+        titulo: livro.title,
+        autor: livro.author_name ? livro.author_name[0] : "Autor desconhecido",
+        ano_publicacao: livro.first_publish_year,
+        isbn: livro.isbn ? livro.isbn[0] : null,
+        capa_id: livro.cover_i ? livro.cover_i : null,
+      };
+    });
+    // 5. Devolvemos para o nosso cliente os dados limpinhos
+    res.json(livrosEncontrados);
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao buscar os livros." });
+    console.error("Erro ao buscar na Open Library:", error);
+    res
+      .status(500)
+      .json({ erro: "Erro ao consultar a base de livros externa." });
   }
 });
 
