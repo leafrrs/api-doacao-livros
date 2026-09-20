@@ -42,45 +42,60 @@ app.post("/usuarios", async (req, res) => {
 // 2. Rota para cadastrar um livro para doação
 app.post("/livros", async (req, res) => {
   try {
-    const { titulo, autor, descricao, usuarioId } = req.body;
-
+    // Agora desestruturamos também os campos opcionais
+    const {
+      titulo,
+      autor,
+      descricao,
+      usuarioId,
+      isbn,
+      anoPublicacao,
+      editora,
+      capaId,
+    } = req.body;
     const novoLivro = await prisma.livro.create({
       data: {
         titulo,
         autor,
         descricao,
-        usuarioId, // ID do usuário dono do livro (no nosso teste, o João é o id 1)
+        usuarioId,
+        // Passamos os novos campos para o Prisma salvar no banco
+        isbn,
+        anoPublicacao,
+        editora,
+        capaId,
       },
     });
-
     res.status(201).json(novoLivro);
   } catch (error) {
     res.status(400).json({ erro: "Não foi possível cadastrar o livro." });
   }
 });
-
-// 3. Rota para listar todos os livros (Estante Geral)
+// 3. Rota para listar todos os livros do banco local (Estante Geral)
+app.get("/livros", async (req, res) => {
+  try {
+    const livros = await prisma.livro.findMany({
+      include: { dono: true },
+    });
+    res.json(livros);
+  } catch (error) {
+    res.status(500).json({ erro: "Erro ao buscar os livros locais." });
+  }
+});
+// 4. Rota da FASE 1: Buscar livro por Título (Open Library)
 app.get("/livros/buscar", async (req, res) => {
   try {
-    // 1. Pegamos o título que o usuário digitou na URL (ex: ?titulo=senhor dos aneis)
     const tituloBuscado = req.query.titulo;
     if (!tituloBuscado) {
       return res
         .status(400)
         .json({ erro: "Por favor, informe um título para buscar." });
     }
-    // 2. Fazemos a requisição para a API externa com o nosso "crachá"
-    const urlDaApiExterna = `https://openlibrary.org/search.json?title=${tituloBuscado}&limit=5`;
-
+    const urlDaApiExterna = `https://openlibrary.org/search.json?title=${tituloBuscado}&language=por&limit=5`;
     const respostaOpenLibrary = await fetch(urlDaApiExterna, {
-      headers: {
-        "User-Agent": "ProjetoAcademicoRecode/1.0", // Identificação amigável
-      },
+      headers: { "User-Agent": "ProjetoAcademicoRecode/1.0" },
     });
-
-    // 3. Transformamos a resposta deles em JSON
     const dados = await respostaOpenLibrary.json();
-    // 4. "Limpamos" os dados (Pegamos apenas o array 'docs' e extraímos o que importa)
     const livrosEncontrados = dados.docs.map((livro) => {
       return {
         titulo: livro.title,
@@ -90,13 +105,55 @@ app.get("/livros/buscar", async (req, res) => {
         capa_id: livro.cover_i ? livro.cover_i : null,
       };
     });
-    // 5. Devolvemos para o nosso cliente os dados limpinhos
     res.json(livrosEncontrados);
   } catch (error) {
-    console.error("Erro ao buscar na Open Library:", error);
     res
       .status(500)
       .json({ erro: "Erro ao consultar a base de livros externa." });
+  }
+});
+// 5. Rota da FASE 2: Buscar livro por ISBN (Open Library)
+app.get("/livros/buscar/isbn/:isbn", async (req, res) => {
+  try {
+    const isbnParam = req.params.isbn;
+    const isbnLimpo = isbnParam.replace(/-/g, "").toUpperCase();
+    if (!isbnLimpo) {
+      return res.status(400).json({ erro: "ISBN não informado." });
+    }
+    const isbnRegex = /^(?:\d{13}|\d{9}[\dX])$/;
+    if (!isbnRegex.test(isbnLimpo)) {
+      return res.status(400).json({
+        erro: "Formato de ISBN inválido. Deve conter 13 dígitos numéricos, ou 10 dígitos (onde o último pode ser 'X').",
+      });
+    }
+    const urlDaApiExterna = `https://openlibrary.org/search.json?isbn=${isbnLimpo}`;
+    const respostaOpenLibrary = await fetch(urlDaApiExterna, {
+      headers: { "User-Agent": "ProjetoAcademicoRecode/1.0" },
+    });
+    if (!respostaOpenLibrary.ok) {
+      throw new Error("Falha de comunicação com a Open Library");
+    }
+    const dados = await respostaOpenLibrary.json();
+    if (dados.numFound === 0 || !dados.docs || dados.docs.length === 0) {
+      return res
+        .status(404)
+        .json({ erro: "Nenhum livro encontrado com este ISBN." });
+    }
+    const livro = dados.docs[0];
+    const livroFormatado = {
+      titulo: livro.title,
+      autor: livro.author_name ? livro.author_name[0] : "Autor desconhecido",
+      isbn: isbnLimpo,
+      ano_publicacao: livro.first_publish_year || "Ano desconhecido",
+      editora: livro.publisher ? livro.publisher[0] : "Editora desconhecida",
+      capa_id: livro.cover_i ? livro.cover_i : null,
+    };
+    res.json(livroFormatado);
+  } catch (error) {
+    console.error("Erro ao buscar ISBN:", error);
+    res
+      .status(500)
+      .json({ erro: "Erro interno ao consultar a base de livros externa." });
   }
 });
 

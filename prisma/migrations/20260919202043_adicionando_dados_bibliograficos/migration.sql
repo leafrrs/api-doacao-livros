@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Livro" ADD COLUMN "anoPublicacao" INTEGER;
+ALTER TABLE "Livro" ADD COLUMN "capaId" INTEGER;
+ALTER TABLE "Livro" ADD COLUMN "editora" TEXT;
+ALTER TABLE "Livro" ADD COLUMN "isbn" TEXT;

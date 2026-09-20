@@ -16,13 +16,18 @@ model Usuario {
 }
 
 model Livro {
-  id         Int     @id @default(autoincrement())
-  titulo     String
-  autor      String
-  descricao  String? // A interrogação significa que é opcional
-  disponivel Boolean @default(true) // Quando o livro é cadastrado, ele já entra como disponível
+  id             Int      @id @default(autoincrement())
   
-  // Relacionamento com o dono do livro
-  usuarioId  Int
-  dono       Usuario @relation(fields: [usuarioId], references: [id])
+  titulo         String
+  autor          String
+  isbn           String?  
+  anoPublicacao  Int?     // Alterado para Int opcional
+  editora        String?  
+  capaId         Int?     // Alterado para Int opcional
+  
+  descricao      String?  
+  disponivel     Boolean  @default(true)
+  
+  usuarioId      Int
+  dono           Usuario  @relation(fields: [usuarioId], references: [id])
 }
