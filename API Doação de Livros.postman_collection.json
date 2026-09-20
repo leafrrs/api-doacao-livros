@@ -1,10 +1,10 @@
 {
   "info": {
-    "_postman_id": "6681d9b0-1899-4e58-b7cf-3daaa189039f",
+    "_postman_id": "b88ddb9d-31c7-4408-b360-99446df19b8d",
     "name": "API Doação de Livros",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "57026899",
-    "_collection_link": "https://go.postman.co/collection/57026899-6681d9b0-1899-4e58-b7cf-3daaa189039f?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/57026899-b88ddb9d-31c7-4408-b360-99446df19b8d?source=collection_link"
   },
   "item": [
     {
@@ -42,7 +42,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n  \"titulo\": \"O Senhor dos Anéis\",\r\n  \"autor\": \"J.R.R. Tolkien\",\r\n  \"descricao\": \"Livro em ótimo estado, estou doando pois já tenho outro.\",\r\n  \"usuarioId\": 1\r\n}",
+          "raw": "{\r\n  \"titulo\": \"Fantastic Mr. Fox\",\r\n  \"autor\": \"Roald Dahl\",\r\n  \"descricao\": \"Livro com cheirinho de novo. Doando porque li em 1 dia!\",\r\n  \"usuarioId\": 1,\r\n  \"isbn\": \"9780140328721\",\r\n  \"anoPublicacao\": 1988,\r\n  \"editora\": \"Puffin Books\",\r\n  \"capaId\": 8259441\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -97,6 +97,32 @@
           "path": [
             "livros",
             "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Buscar Livro na Open Library",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/livros/buscar?titulo=senhor+dos+aneis",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "livros",
+            "buscar"
+          ],
+          "query": [
+            {
+              "key": "titulo",
+              "value": "senhor+dos+aneis"
+            }
           ]
         }
       },
