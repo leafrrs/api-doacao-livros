@@ -14,24 +14,25 @@ app.use(express.json());
 // 1. Rota para cadastrar um novo usuário
 app.post("/usuarios", async (req, res) => {
   try {
-    // Pegamos os dados que o usuário enviou na requisição
     const { nome, email, senha } = req.body;
-
-    // Pedimos ao Prisma para salvar no banco de dados
+    // Validação Antecipada (Fail Fast)
+    if (!nome || !email || !senha) {
+      return res
+        .status(400)
+        .json({ erro: "Nome, email e senha são obrigatórios." });
+    }
     const novoUsuario = await prisma.usuario.create({
-      data: {
-        nome,
-        email,
-        senha,
-      },
+      data: { nome, email, senha },
     });
-
-    // Retornamos o usuário criado com o status 201 (Created)
     res.status(201).json(novoUsuario);
   } catch (error) {
-    res.status(400).json({
-      erro: "Não foi possível criar o usuário. O email já existe ou faltam dados.",
-    });
+    console.error("Erro ao criar usuário:", error);
+
+    // P2002 = Erro de campo único (Unique constraint failed) - Email já existe
+    if (error.code === "P2002") {
+      return res.status(400).json({ erro: "Este e-mail já está em uso." });
+    }
+    res.status(500).json({ erro: "Erro interno ao tentar criar o usuário." });
   }
 });
 
@@ -42,7 +43,6 @@ app.post("/usuarios", async (req, res) => {
 // 2. Rota para cadastrar um livro para doação
 app.post("/livros", async (req, res) => {
   try {
-    // Agora desestruturamos também os campos opcionais
     const {
       titulo,
       autor,
@@ -53,13 +53,18 @@ app.post("/livros", async (req, res) => {
       editora,
       capaId,
     } = req.body;
+    // Validação Antecipada (Fail Fast)
+    if (!titulo || !autor || !usuarioId) {
+      return res.status(400).json({
+        erro: "Título, autor e ID do usuário doador são obrigatórios.",
+      });
+    }
     const novoLivro = await prisma.livro.create({
       data: {
         titulo,
         autor,
         descricao,
         usuarioId,
-        // Passamos os novos campos para o Prisma salvar no banco
         isbn,
         anoPublicacao,
         editora,
@@ -68,34 +73,60 @@ app.post("/livros", async (req, res) => {
     });
     res.status(201).json(novoLivro);
   } catch (error) {
-    res.status(400).json({ erro: "Não foi possível cadastrar o livro." });
+    console.error("Erro ao cadastrar livro:", error);
+
+    // P2003 = Erro de chave estrangeira (Foreign key constraint failed) - Usuário não existe
+    if (error.code === "P2003") {
+      return res
+        .status(404)
+        .json({ erro: "O usuário informado não existe no sistema." });
+    }
+    res.status(500).json({ erro: "Erro interno ao cadastrar o livro." });
   }
 });
 // 3. Rota para listar todos os livros do banco local (Estante Geral)
 app.get("/livros", async (req, res) => {
   try {
     const livros = await prisma.livro.findMany({
-      include: { dono: true },
+      include: {
+        // Em vez de "true", usamos "select" para escolher os campos exatos
+        dono: {
+          select: {
+            id: true,
+            nome: true,
+          },
+        },
+      },
     });
     res.json(livros);
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao buscar os livros locais." });
+    console.error("Erro ao buscar livros locais:", error);
+    res.status(500).json({ erro: "Erro interno ao buscar os livros locais." });
   }
 });
 // 4. Rota da FASE 1: Buscar livro por Título (Open Library)
 app.get("/livros/buscar", async (req, res) => {
   try {
     const tituloBuscado = req.query.titulo;
+
     if (!tituloBuscado) {
       return res
         .status(400)
         .json({ erro: "Por favor, informe um título para buscar." });
     }
+
     const urlDaApiExterna = `https://openlibrary.org/search.json?title=${tituloBuscado}&language=por&limit=5`;
     const respostaOpenLibrary = await fetch(urlDaApiExterna, {
       headers: { "User-Agent": "ProjetoAcademicoRecode/1.0" },
     });
+    // NOVO: Travamos a aplicação se a Open Library estiver fora do ar
+    if (!respostaOpenLibrary.ok) {
+      throw new Error(
+        `Falha de comunicação com a Open Library. Status: ${respostaOpenLibrary.status}`,
+      );
+    }
     const dados = await respostaOpenLibrary.json();
+
     const livrosEncontrados = dados.docs.map((livro) => {
       return {
         titulo: livro.title,
@@ -105,8 +136,11 @@ app.get("/livros/buscar", async (req, res) => {
         capa_id: livro.cover_i ? livro.cover_i : null,
       };
     });
+
     res.json(livrosEncontrados);
   } catch (error) {
+    // NOVO: Console.error para diagnóstico local sem expor dados ao usuário
+    console.error("Erro na busca por título:", error);
     res
       .status(500)
       .json({ erro: "Erro ao consultar a base de livros externa." });
@@ -157,18 +191,32 @@ app.get("/livros/buscar/isbn/:isbn", async (req, res) => {
   }
 });
 
-// 4. Rota para deletar um livro (A rota que você sugeriu!)
+// 6. Rota para deletar um livro do banco local
 app.delete("/livros/:id", async (req, res) => {
   try {
-    const idDoLivro = parseInt(req.params.id); // Pega o número que vem na URL
-
+    const idDoLivro = parseInt(req.params.id);
+    // NOVO: Validação se o ID é um número válido
+    if (isNaN(idDoLivro)) {
+      return res
+        .status(400)
+        .json({ erro: "O ID do livro deve ser um número válido." });
+    }
     await prisma.livro.delete({
       where: { id: idDoLivro },
     });
-
     res.json({ mensagem: "Livro removido com sucesso!" });
   } catch (error) {
-    res.status(400).json({ erro: "Livro não encontrado." });
+    console.error("Erro ao deletar livro:", error);
+
+    // NOVO: Separando os erros usando o código do Prisma
+    // P2025 = "Record to delete does not exist"
+    if (error.code === "P2025") {
+      return res
+        .status(404)
+        .json({ erro: "Livro não encontrado ou já deletado." });
+    }
+    // Se for qualquer outro erro (banco fora do ar, erro de conexão, etc)
+    res.status(500).json({ erro: "Erro interno ao tentar remover o livro." });
   }
 });
 
