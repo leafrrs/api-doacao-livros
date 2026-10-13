@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id       Int     @id @default(autoincrement())
+  nome     String
+  email    String  @unique
+  senha    String
+  role   String  @default("USER")
+  livros   Livro[] // Indica que um usuário tem uma lista de livros
+}
+
+model Livro {
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  autor         String
+  isbn          String?
+  anoPublicacao Int?
+  editora       String?
+  capaId        Int?
+  descricao     String?
+  disponivel    Boolean  @default(true)
+  condicao      String   @default("BOM_ESTADO")
+  relatoLeitura String?
+  usuarioId     Int
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+}

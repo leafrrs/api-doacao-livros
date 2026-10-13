@@ -1,3 +1,20 @@
+# Dependencies
 node_modules/
+*/node_modules/
+
+# Environment variables
 .env
+*/.env
+*.env
+
+# SQLite Database
 dev.db
+backend/dev.db
+backend/prisma/dev.db
+*.db
+*.db-journal
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
