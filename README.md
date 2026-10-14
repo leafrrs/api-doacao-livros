@@ -1,452 +1,212 @@
-# 📚 API de Doação de Livros
+# 📚 Reconecta — Doação e Circulação de Livros
 
-API REST desenvolvida em **Node.js** para apoiar um sistema de doação e circulação de livros.
+Aplicação Full Stack completa desenvolvida em **Node.js, Express, Prisma ORM, SQLite e React**, com o objetivo de apoiar a doação, troca e circulação contínua de livros entre leitores.
 
-O projeto foi desenvolvido como parte do programa acadêmico da **Recode**, relacionado ao **ODS 4 — Educação de Qualidade**, com a proposta de facilitar o acesso à leitura por meio da conexão entre pessoas que possuem livros disponíveis para doação e pessoas interessadas nesses exemplares.
+O projeto foi construído como parte do programa acadêmico da **Recode**, diretamente alinhado ao **ODS 4 da ONU (Educação de Qualidade)**, promovendo a democratização do acesso à leitura e incentivando que livros parados em estantes ganhem novos leitores.
 
-## 🎯 Objetivo do Projeto
+---
 
-A proposta do projeto é disponibilizar uma API capaz de cadastrar usuários e livros disponíveis para doação, além de utilizar uma fonte externa de dados bibliográficos para facilitar a identificação dos livros.
+## 🎯 Objetivo e Proposta de Valor
 
-Para isso, a aplicação possui integração com a **Open Library API**, permitindo pesquisar informações de livros por título ou ISBN antes de cadastrar um exemplar no banco de dados local.
+A proposta do **Reconecta** é criar uma ponte comunitária entre quem deseja doar livros e quem busca novas leituras. 
 
-O projeto foi desenvolvido como um **MVP (Produto Mínimo Viável)**, priorizando as funcionalidades principais necessárias para demonstrar a proposta.
+O sistema integra-se à **Open Library API** para buscar automaticamente dados bibliográficos e capas oficiais, permitindo que o doador complemente apenas as informações do exemplar físico real (estado de conservação e relato pessoal de leitura).
+
+Além disso, a plataforma conta com uma **lógica de circulação**: quando um usuário resgata um exemplar, o livro passa para a sua posse e sai da Estante Geral. Ao terminar a leitura, o leitor pode recolocá-lo para circular novamente!
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
+### Back-End
 - **Node.js** — ambiente de execução JavaScript;
-- **Express** — criação do servidor e das rotas da API;
-- **Prisma ORM** — comunicação entre a aplicação e o banco de dados;
-- **SQLite** — banco de dados relacional utilizado no projeto;
-- **Fetch API** — comunicação com a Open Library;
-- **Postman** — testes e documentação das requisições da API.
+- **Express** — criação do servidor REST e middlewares;
+- **Prisma ORM** — modelagem e comunicação com o banco de dados;
+- **SQLite** — banco de dados relacional leve e embutido;
+- **bcryptjs** — geração e validação de hashes seguros de senhas;
+- **jsonwebtoken (JWT)** — autenticação e emissão de tokens de acesso;
+- **CORS** — liberação de comunicação entre o front-end e a API;
+- **Fetch API nativa** — integração com o catálogo da Open Library.
+
+### Front-End
+- **React** (com **Vite**) — interface modular, moderna e rápida;
+- **React Router Dom** — roteamento de páginas sem recarregamento;
+- **Lucide React** — ícones em vetor leves e consistentes;
+- **CSS3 Design System** — layout responsivo com suporte a **Modo Claro** e **Modo Escuro (Dark Mode)**.
 
 ---
 
-## 🏗️ Estrutura do MVP
+## 🏗️ Arquitetura do Repositório (Monorepo)
 
-Para manter o projeto simples e adequado ao escopo acadêmico, as rotas, validações e regras de negócio estão concentradas no arquivo principal `server.js`.
-
-O **Prisma ORM** faz a comunicação entre a aplicação e o banco de dados SQLite.
-
-O fluxo principal da aplicação pode ser representado da seguinte maneira:
+O projeto é organizado de forma modular, separando claramente as responsabilidades de cliente e servidor:
 
 ```text
-Usuário pesquisa um livro
-          ↓
-       API local
-          ↓
-     Open Library
-          ↓
-Dados bibliográficos
-          ↓
-Usuário confirma o exemplar
-          ↓
-     POST /livros
-          ↓
-        Prisma
-          ↓
-        SQLite
+api-doacao-livros/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma       # Modelos Usuario e Livro
+│   │   ├── migrations/         # Histórico de migrações SQL
+│   │   └── seed.js             # Semeador de usuários com hash e ADMIN inicial
+│   ├── .env.example            # Modelo das variáveis de ambiente
+│   ├── package.json
+│   └── server.js               # Rotas, validações (Fail Fast) e middlewares JWT
+├── frontend/
+│   ├── src/
+│   │   ├── components/         # Header, Footer, BookCard, SearchBar, Sidebar
+│   │   ├── pages/              # Home, Login, RegisterUser, RegisterBook
+│   │   ├── services/api.js     # Cliente HTTP com injeção automática de JWT
+│   │   ├── App.jsx             # Roteamento e persistência de tema
+│   │   └── index.css           # Estilos globais e tokens de cores
+│   └── package.json
+├── .gitignore
+├── README.md
+└── API Doação de Livros.postman_collection.json
 ```
 
 ---
 
-## 📖 Catálogo Bibliográfico x Exemplar
+## 🔒 Autenticação e Regras de Permissão (RBAC)
 
-Durante o desenvolvimento, foi importante diferenciar dois conceitos.
+O sistema conta com dois níveis de acesso baseados em papéis:
+- **`USER` (Leitor Comum):** Pode consultar a estante pública, cadastrar doações em seu próprio nome, pegar livros disponíveis e editar/excluir somente os exemplares sob sua posse.
+- **`ADMIN` (Administrador):** Possui permissão de moderação do acervo, podendo editar ou excluir livros de qualquer usuário.
 
-### Catálogo Bibliográfico
-
-Representa os dados bibliográficos da edição de um livro, como:
-
-- título;
-- autor;
-- ISBN;
-- ano de publicação;
-- editora;
-- identificador da capa.
-
-Essas informações podem ser obtidas através da **Open Library**.
-
-### Exemplar
-
-Representa a cópia física que um usuário possui e deseja disponibilizar para doação.
-
-Além dos dados bibliográficos, o exemplar possui informações relacionadas ao sistema, como:
-
-- `usuarioId` — usuário responsável pelo exemplar;
-- `descricao` — informações sobre o estado de conservação;
-- `disponivel` — indica se o exemplar está disponível.
-
-Para manter o MVP simples, os dados bibliográficos e os dados do exemplar são armazenados em um único registro de livro no banco local.
+### Medidas de Segurança Adotadas:
+1. **Hash de senhas:** Nenhuma senha é salva em texto puro. Utiliza-se `bcryptjs` com salt round de 10.
+2. **Proteção contra enumeração:** Respostas de erro no login utilizam mensagens genéricas (`401 Credenciais inválidas.`).
+3. **Prevenção de escalonamento:** O cadastro público de usuários força sempre o papel `USER`, mesmo que o cliente tente injetar `role: "ADMIN"`.
+4. **Criação controlada do Administrador:** O primeiro admin é gerado através de script seguro de seed (`backend/prisma/seed.js`).
+5. **Dados protegidos:** Respostas da API nunca expõem senhas ou hashes criptográficos.
 
 ---
 
-## 🌐 Integração com Open Library
+## 📖 Ciclo de Vida do Livro: Catálogo x Exemplar
 
-A aplicação utiliza a **Open Library API** como fonte externa de informações bibliográficas.
-
-A integração permite realizar dois tipos de busca.
-
-### Busca por título
-
-```http
-GET /livros/buscar?titulo=senhor+dos+aneis
-```
-
-A API consulta a Open Library e retorna até **5 resultados**, contendo somente os dados necessários para o projeto.
-
-Exemplo de resposta:
-
-```json
-[
-  {
-    "titulo": "O Senhor dos Anéis",
-    "autor": "J.R.R. Tolkien",
-    "ano_publicacao": 2002,
-    "isbn": "9780000000000",
-    "capa_id": 123456
-  }
-]
-```
-
-### Busca por ISBN
-
-```http
-GET /livros/buscar/isbn/9780140328721
-```
-
-A rota aceita **ISBN-10 ou ISBN-13**.
-
-Caso o ISBN seja informado com hífens, como:
-
-```text
-978-0-14-032872-1
-```
-
-a API remove os hífens antes de realizar a consulta à Open Library.
-
-Como o ISBN identifica uma edição específica, a resposta contém apenas um livro quando a edição é encontrada.
-
-Exemplo:
-
-```json
-{
-  "titulo": "Fantastic Mr. Fox",
-  "autor": "Roald Dahl",
-  "isbn": "9780140328721",
-  "ano_publicacao": 1988,
-  "editora": "Puffin Books",
-  "capa_id": 8259441
-}
-```
+O projeto separa com clareza os conceitos de domínio:
+1. **Dados Bibliográficos:** Título, autor, ano de publicação, capa oficial e ISBN. São obtidos via integração com a Open Library e não podem ser adulterados no exemplar.
+2. **Exemplar Físico:** É a cópia real disponibilizada pelo doador, possuindo:
+   - `condicao`: Estado físico (`NOVO`, `SEMINOVO`, `BOM_ESTADO`, `MARCAS_DE_USO`, `DESGASTADO`);
+   - `relatoLeitura`: Depoimento do leitor sobre o impacto da obra (máx. 2.000 caracteres);
+   - `disponivel`: Status de circulação (`true` para livre na estante; `false` quando resgatado).
 
 ---
 
-## 📚 Endpoints
+## 📍 Endpoints da API
 
-### 👤 Criar usuário
+### Autenticação & Usuários
+* `POST /usuarios`: Cadastro público de novo leitor comum.
+* `POST /auth/login`: Autentica o usuário e emite o token JWT.
+* `GET /auth/me`: Retorna os dados do leitor autenticado (requer token).
+* `PATCH /usuarios/perfil`: Atualiza a personalização do leitor (bio, foto e cor do banner).
 
-```http
-POST /usuarios
-```
+### Catálogo Externo (Open Library)
+* `GET /livros/buscar?titulo=nome-do-livro`: Consulta edições em português com retorno normalizado.
+* `GET /livros/buscar/isbn/:isbn`: Busca detalhada por código ISBN-10 ou ISBN-13 (com ou sem hífens).
 
-Campos obrigatórios:
-
-- `nome`;
-- `email`;
-- `senha`.
-
-Exemplo:
-
-```json
-{
-  "nome": "João das Letras",
-  "email": "joao@email.com",
-  "senha": "123456"
-}
-```
-
-A API verifica se os campos obrigatórios foram enviados antes de chamar o Prisma.
-
----
-
-### 📖 Cadastrar livro para doação
-
-```http
-POST /livros
-```
-
-Campos obrigatórios:
-
-- `titulo`;
-- `autor`;
-- `usuarioId`.
-
-Os demais dados bibliográficos e a descrição do exemplar são opcionais.
-
-Exemplo:
-
-```json
-{
-  "titulo": "Fantastic Mr. Fox",
-  "autor": "Roald Dahl",
-  "descricao": "Livro em ótimo estado.",
-  "usuarioId": 1,
-  "isbn": "9780140328721",
-  "anoPublicacao": 1988,
-  "editora": "Puffin Books",
-  "capaId": 8259441
-}
-```
-
-Quando cadastrado com sucesso, o servidor retorna:
-
-```http
-201 Created
-```
-
----
-
-### 📚 Listar livros
-
-```http
-GET /livros
-```
-
-Retorna os exemplares cadastrados na Estante Geral.
-
-Na relação com o dono do exemplar, a API retorna apenas:
-
-- `id`;
-- `nome`.
-
-Exemplo:
-
-```json
-{
-  "id": 2,
-  "titulo": "Fantastic Mr. Fox",
-  "autor": "Roald Dahl",
-  "isbn": "9780140328721",
-  "anoPublicacao": 1988,
-  "editora": "Puffin Books",
-  "capaId": 8259441,
-  "descricao": "Livro em ótimo estado.",
-  "disponivel": true,
-  "usuarioId": 1,
-  "dono": {
-    "id": 1,
-    "nome": "João das Letras"
-  }
-}
-```
-
-Dados como senha e e-mail do usuário não são incluídos nessa resposta.
-
----
-
-### 🔎 Buscar por título na Open Library
-
-```http
-GET /livros/buscar?titulo=nome-do-livro
-```
-
-Retorna até 5 resultados da Open Library relacionados ao título pesquisado.
-
----
-
-### 🔎 Buscar por ISBN na Open Library
-
-```http
-GET /livros/buscar/isbn/:isbn
-```
-
-Exemplo:
-
-```http
-GET /livros/buscar/isbn/9780140328721
-```
-
-Retorna os dados bibliográficos da edição encontrada.
-
----
-
-### 🗑️ Remover livro
-
-```http
-DELETE /livros/:id
-```
-
-Exemplo:
-
-```http
-DELETE /livros/2
-```
-
-A API verifica se o ID informado é válido antes de consultar o banco.
-
-Caso o livro não exista, retorna:
-
-```http
-404 Not Found
-```
-
----
-
-## ⚠️ Validações e Tratamento de Erros
-
-A API possui validações básicas de entrada e tratamento de erros para responder de forma adequada a situações esperadas e falhas durante a execução.
-
-Alguns dos status HTTP utilizados são:
-
-### `400 Bad Request`
-
-Utilizado quando a requisição possui dados inválidos, por exemplo:
-
-- campos obrigatórios ausentes;
-- ID em formato inválido;
-- ISBN com tamanho inválido;
-- requisição sem título para pesquisa.
-
-### `404 Not Found`
-
-Utilizado quando um recurso solicitado não é encontrado, por exemplo:
-
-- tentativa de remover um livro inexistente;
-- ISBN não encontrado na Open Library.
-
-### `500 Internal Server Error`
-
-Utilizado para falhas inesperadas durante a execução ou problemas na comunicação com serviços externos.
-
-Nas consultas à Open Library, a aplicação verifica o status HTTP da resposta antes de processar os dados.
-
-Erros técnicos são registrados no console do servidor durante o desenvolvimento, enquanto a resposta enviada ao cliente evita expor detalhes internos do Prisma ou do banco de dados.
+### Gerenciamento de Livros
+* `GET /livros`: Retorna todos os livros atualmente disponíveis para resgate na Estante Geral.
+* `GET /livros/meus`: Retorna os livros associados ao usuário logado (requer token).
+* `POST /livros`: Cadastra um exemplar para doação, vinculando ao `usuarioId` do token.
+* `PATCH /livros/:id`: Edita os dados do exemplar (condição e relato) ou realiza a ação de resgate (`{ "acao": "pegar" }`).
+* `DELETE /livros/:id`: Remove um exemplar (permitido apenas ao proprietário ou ao administrador).
 
 ---
 
 ## 🚀 Instalação e Execução
 
 ### Pré-requisitos
-
-É necessário possuir o **Node.js** instalado.
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/leafrrs/api-doacao-livros.git
-```
-
-Entre na pasta:
-
-```bash
-cd api-doacao-livros
-```
-
-### 2. Instale as dependências
-
-```bash
-npm install
-```
-
-### 3. Prepare o banco de dados
-
-Execute as migrations existentes do Prisma:
-
-```bash
-npx prisma migrate dev
-```
-
-### 4. Inicie a aplicação
-
-```bash
-node server.js
-```
-
-O servidor ficará disponível em:
-
-```text
-http://localhost:3000
-```
+- **Node.js** (v18 ou superior) instalado.
 
 ---
 
-## 🗃️ Banco de Dados
-
-O projeto utiliza **SQLite** através do Prisma ORM.
-
-O modelo `Livro` armazena tanto informações bibliográficas quanto informações relacionadas ao exemplar físico.
-
-Entre os campos utilizados estão:
-
-```text
-titulo
-autor
-isbn
-anoPublicacao
-editora
-capaId
-descricao
-disponivel
-usuarioId
+### 1. Clonar o Repositório
+```bash
+git clone https://github.com/leafrrs/api-doacao-livros.git
+cd api-doacao-livros
 ```
 
-O campo `usuarioId` estabelece a relação entre o exemplar e o usuário responsável por ele.
+### 2. Configurar e Iniciar o Back-End
+Entre na pasta do backend:
+```bash
+cd backend
+npm install
+```
 
-As alterações na estrutura do banco são controladas através das **migrations do Prisma**.
+Crie o arquivo `.env` dentro da pasta `backend/`:
+```env
+DATABASE_URL="file:./dev.db"
+PORT=3000
+JWT_SECRET=sua_chave_secreta_jwt_para_desenvolvimento
+JWT_EXPIRES_IN=1d
+```
+
+Execute as migrações do banco SQLite e popule os usuários iniciais com o seed:
+```bash
+npx prisma migrate dev
+node prisma/seed.js
+```
+
+Inicie o servidor da API:
+```bash
+npm start
+```
+*O servidor estará operando em: `http://localhost:3000`*
+
+---
+
+### 3. Iniciar o Front-End
+Em uma nova janela de terminal, entre na pasta do frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*A interface web estará disponível em: `http://localhost:5173`*
+
+---
+
+## 💻 Interface Front-End (Wireframe Implementado)
+
+A interface do usuário foi projetada com base em wireframe modular, contando com:
+- **Painel Lateral do Leitor:** Avatar com profundidade, bio customizável, seletor de paleta de cores para o banner superior e 3 abas interativas (**Pegos**, **Doados** e **Favoritos**);
+- **Lista de Desejos (Favoritos):** Permite favoritar livros com 1 clique no coração ❤️ e ativa alertas de notificação;
+- **Vitrine Central:** Estante Geral fluida com cards de livros, capas dinâmicas e badges de condição física;
+- **Autocomplete Inteligente:** Na tela de doação, a pesquisa no catálogo sugere obras em tempo real conforme a digitação;
+- **Notificações Flutuantes (Toasts):** Mensagens de sucesso ou erro que surgem sem empurrar os elementos da tela e desaparecem sozinhas após 5 segundos.
 
 ---
 
 ## 📮 Collection do Postman
 
-Para facilitar os testes da API, o projeto possui uma Collection do Postman exportada na raiz do repositório:
-
+Para facilitar a validação e homologação dos contratos de API, o arquivo atualizado da Collection está disponível na raiz do repositório:
 ```text
 API Doação de Livros.postman_collection.json
 ```
-
-Para utilizá-la:
-
-1. abra o Postman;
-2. escolha a opção **Import**;
-3. selecione o arquivo da Collection;
-4. inicie o servidor local;
-5. execute as requisições disponíveis.
-
-A Collection contém as requisições utilizadas durante o desenvolvimento e os testes das principais rotas da API.
+Basta importá-lo no Postman para testar os fluxos de Login, Cadastro, Consultas, Atualizações Parciais e Exclusões protegidas.
 
 ---
 
 ## 🚧 Limitações e Próximos Passos
 
-Este projeto foi desenvolvido como um **MVP acadêmico**, portanto algumas funcionalidades foram mantidas fora do escopo atual.
-
-Entre possíveis evoluções estão:
-
-- armazenamento seguro de senhas utilizando hash;
-- autenticação e autorização de usuários;
-- separação da aplicação em camadas, como controllers e services;
-- paginação da Estante Geral;
-- interface front-end;
-- evolução do fluxo de solicitação e conclusão das doações.
-
-Esses pontos podem ser desenvolvidos futuramente sem alterar o objetivo principal deste MVP.
+Como evolução contínua da aplicação, estão mapeadas para as próximas versões:
+- Integração real com serviços de mensageria para envio de e-mails (ex: Nodemailer/SendGrid) e WhatsApp API para a lista de desejos;
+- Paginação com rolagem infinita na Estante Geral;
+- Separação da arquitetura do backend no padrão MVC (Controllers, Services e Repositories);
+- Upload direto de imagens de capa para armazenamento em nuvem (ex: AWS S3 ou Cloudinary).
 
 ---
 
 ## 🌱 ODS 4 — Educação de Qualidade
 
-O projeto foi desenvolvido a partir do **Objetivo de Desenvolvimento Sustentável 4**, relacionado à Educação de Qualidade.
-
-A proposta de circulação e doação de livros busca contribuir para o acesso a materiais de leitura e aprendizado, reaproveitando exemplares que poderiam permanecer sem utilização.
+Este projeto apoia diretamente o **Objetivo de Desenvolvimento Sustentável 4 (Educação de Qualidade)** da Agenda 2030 da ONU, promovendo o acesso democrático ao conhecimento, o incentivo à leitura e a economia circular do livro didático e literário.
 
 ---
 
 ## 👨‍💻 Autor
 
-**Rafael Rodrigues dos Santos**
+**Rafael Rodrigues dos Santos**  
+- 💼 **LinkedIn:** [rafael-rodrigues-dos-santos-rrs](https://www.linkedin.com/in/rafael-rodrigues-dos-santos-rrs)  
+- 🐙 **GitHub:** [leafrrs](https://github.com/leafrrs)  
+- ✉️ **E-mail:** [Rafael.r_rs@hotmail.com](mailto:Rafael.r_rs@hotmail.com)  
 
-Projeto desenvolvido durante o programa da **Recode**.
+*Projeto desenvolvido durante o programa acadêmico da **Recode**.*
