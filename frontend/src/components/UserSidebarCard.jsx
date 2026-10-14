@@ -22,6 +22,8 @@ export default function UserSidebarCard({
   livrosDoados = [],
   favoritos = [],
   onRemoverFavorito,
+  onRedoarLivro,
+  onExcluirLivro,
 }) {
   const [editando, setEditando] = useState(false);
   const [bioInput, setBioInput] = useState(usuario?.bio || 'Amante da leitura transformando estantes paradas em pontes de conhecimento.');
@@ -243,19 +245,45 @@ export default function UserSidebarCard({
                 {listaAtual.map((item) => (
                   <li key={item.id} className="sidebar-book-item">
                     <div className="sidebar-book-text">
-                      <strong className="sidebar-book-title">{item.titulo}</strong>
+                      <strong className="sidebar-book-title" title={item.titulo}>{item.titulo}</strong>
                       <span className="sidebar-book-author">{item.autor}</span>
                     </div>
 
-                    {abaLateral === 'favoritos' && onRemoverFavorito && (
-                      <button
-                        className="btn-remove-fav"
-                        onClick={() => onRemoverFavorito(item.id)}
-                        title="Remover dos favoritos"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <div className="sidebar-item-actions">
+                      {/* Na aba Pegos: Botão para Redoar (Colocar para circular de novo) */}
+                      {abaLateral === 'pegos' && onRedoarLivro && (
+                        <button
+                          className="btn-sidebar-redoar"
+                          onClick={() => onRedoarLivro(item)}
+                          title="Colocar para doar novamente (Passar para a frente!)"
+                        >
+                          <Gift size={14} />
+                          <span>Doar</span>
+                        </button>
+                      )}
+
+                      {/* Botão de Excluir para livros sob posse ou doados */}
+                      {(abaLateral === 'pegos' || abaLateral === 'doados') && onExcluirLivro && (
+                        <button
+                          className="btn-sidebar-delete"
+                          onClick={() => onExcluirLivro(item.id)}
+                          title="Excluir livro"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+
+                      {/* Na aba Favoritos: Remover da lista */}
+                      {abaLateral === 'favoritos' && onRemoverFavorito && (
+                        <button
+                          className="btn-remove-fav"
+                          onClick={() => onRemoverFavorito(item.id)}
+                          title="Remover dos favoritos"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

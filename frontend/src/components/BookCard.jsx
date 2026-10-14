@@ -1,8 +1,8 @@
 import React from 'react';
-import { Book, Trash2, HeartHandshake, User, Calendar, Heart } from 'lucide-react';
+import { Book, Trash2, HeartHandshake, User, Calendar, Heart, Edit3 } from 'lucide-react';
 import { getCurrentUser } from '../services/api';
 
-export default function BookCard({ livro, onPegar, onExcluir, onToggleFavorito, isFavorito, loading }) {
+export default function BookCard({ livro, onPegar, onExcluir, onEditar, onToggleFavorito, isFavorito, loading }) {
   const usuarioLogado = getCurrentUser();
 
   const capaUrl = livro.capaId
@@ -92,16 +92,28 @@ export default function BookCard({ livro, onPegar, onExcluir, onToggleFavorito, 
             <span className="badge-indisponivel">Em leitura / Resgatado</span>
           )}
 
-          {/* Botão de Excluir para Dono ou Admin */}
+          {/* Ações para o Dono do Livro ou Administrador */}
           {(ehDono || ehAdmin) && (
-            <button
-              className="btn-action-delete"
-              onClick={() => onExcluir(livro.id)}
-              disabled={loading}
-              title="Excluir exemplar"
-            >
-              <Trash2 size={16} />
-            </button>
+            <div className="owner-buttons-group">
+              {onEditar && (
+                <button
+                  className="btn-action-edit"
+                  onClick={() => onEditar(livro)}
+                  disabled={loading}
+                  title="Editar condição e relato de leitura"
+                >
+                  <Edit3 size={16} />
+                </button>
+              )}
+              <button
+                className="btn-action-delete"
+                onClick={() => onExcluir(livro.id)}
+                disabled={loading}
+                title="Excluir exemplar"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           )}
         </div>
       </div>

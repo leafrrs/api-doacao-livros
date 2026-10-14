@@ -3,6 +3,7 @@ import UserSidebarCard from '../components/UserSidebarCard';
 import BookCard from '../components/BookCard';
 import SearchBar from '../components/SearchBar';
 import FeedbackMessage from '../components/FeedbackMessage';
+import EditBookModal from '../components/EditBookModal';
 import { apiRequest, getCurrentUser } from '../services/api';
 import { Library, Loader2, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,6 +14,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [termoBusca, setTermoBusca] = useState('');
   const [abaLateral, setAbaLateral] = useState('pegos'); // 'pegos', 'doados', 'favoritos'
+  const [livroParaEditar, setLivroParaEditar] = useState(null);
   
   // Favoritos persistidos no localStorage
   const [favoritos, setFavoritos] = useState(() => {
@@ -112,6 +114,11 @@ export default function Home() {
     }
   }
 
+  // Ação: Redoar Livro (Abre o modal de atualização antes de disponibilizar na Estante Geral)
+  function handleRedoarLivro(livro) {
+    setLivroParaEditar({ ...livro, isRedoando: true });
+  }
+
   // Livros das abas do card lateral do usuário
   const livrosPegos = livrosUsuario.filter(l => !l.disponivel);
   const livrosDoados = livrosUsuario.filter(l => l.disponivel);
@@ -145,6 +152,8 @@ export default function Home() {
             livrosDoados={livrosDoados}
             favoritos={favoritos}
             onRemoverFavorito={handleRemoverFavorito}
+            onRedoarLivro={handleRedoarLivro}
+            onExcluirLivro={handleExcluirLivro}
           />
         </section>
 
@@ -158,7 +167,16 @@ export default function Home() {
               </p>
             </div>
 
-            <SearchBar termo={termoBusca} setTermo={setTermoBusca} />
+            <div className="catalog-actions-top">
+              <SearchBar termo={termoBusca} setTermo={setTermoBusca} />
+
+              {usuario && (
+                <Link to="/doar" className="btn-doar-topo-estante" title="Cadastrar Livro para Doação">
+                  <Plus size={18} />
+                  <span>Doar Livro</span>
+                </Link>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -186,6 +204,7 @@ export default function Home() {
                   livro={livro}
                   onPegar={handlePegarLivro}
                   onExcluir={handleExcluirLivro}
+                  onEditar={(l) => setLivroParaEditar(l)}
                   onToggleFavorito={handleToggleFavorito}
                   isFavorito={favoritos.some(f => f.id === livro.id)}
                   loading={loading}
@@ -193,18 +212,26 @@ export default function Home() {
               ))}
             </div>
           )}
-
-          {/* Botão de Doar Livro perfeitamente alinhado na coluna da direita */}
-          {usuario && (
-            <div className="bottom-action-container">
-              <Link to="/doar" className="btn-doar-alinhado" title="Cadastrar Livro para Doação">
-                <Plus size={20} />
-                <span>Doar Livro</span>
-              </Link>
-            </div>
-          )}
         </section>
       </div>
+
+      {/* Modal para Editar Condição e Relato do Livro (ou Redoar) */}
+      {livroParaEditar && (
+        <EditBookModal
+          livro={livroParaEditar}
+          isRedoando={!!livroParaEditar.isRedoando}
+          onClose={() => setLivroParaEditar(null)}
+          onLivroAtualizado={(livroAtualizado, foiRedoado) => {
+            setFeedback({
+              tipo: 'sucesso',
+              mensagem: foiRedoado
+                ? `"${livroAtualizado.titulo}" foi colocado para circulação na Estante Geral novamente com seu relato atualizado!`
+                : 'Exemplar atualizado com sucesso!',
+            });
+            carregarDados();
+          }}
+        />
+      )}
     </main>
   );
 }
