@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, Moon, Sun, User, LogIn, LogOut, ChevronDown, Palette } from 'lucide-react';
+import { BookOpen, Moon, Sun, User, LogIn, LogOut, ChevronDown, Palette, Lock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser, clearAuth } from '../services/api';
 import UserProfileModal from './UserProfileModal';
@@ -117,6 +117,18 @@ export default function Header({ darkMode, setDarkMode, onAuthChange }) {
                       <div>
                         <span>Dados do Leitor</span>
                         <small className="dropdown-item-desc">Nome, e-mail e nível</small>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => abrirModal('seguranca')}
+                    >
+                      <Lock size={16} className="dropdown-item-icon" />
+                      <div>
+                        <span>Segurança</span>
+                        <small className="dropdown-item-desc">Trocar senha e conta</small>
                       </div>
                     </button>
 

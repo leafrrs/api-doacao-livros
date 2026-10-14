@@ -20,6 +20,20 @@ model Usuario {
   notificarWhatsapp Boolean  @default(false)
   whatsapp          String?
   livros            Livro[]  // Indica que um usuário tem uma lista de livros
+  favoritos         Favorito[]
+}
+
+model Favorito {
+  id        Int      @id @default(autoincrement())
+  titulo    String
+  autor     String?
+  isbn      String?
+  capaId    Int?
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now())
+
+  @@unique([usuarioId, titulo])
 }
 
 model Livro {

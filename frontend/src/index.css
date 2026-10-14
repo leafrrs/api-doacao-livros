@@ -415,6 +415,20 @@ body {
   margin-bottom: 1rem;
 }
 
+.modal-success-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
 /* =========================================================
    ABAS E COMPONENTES DO MODAL DE PERFIL E DADOS DO LEITOR
    ========================================================= */
@@ -670,67 +684,347 @@ body {
   flex-shrink: 0;
 }
 
-.notif-options-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
-}
-
-.notif-chip-select {
+/* Linha Elegante de Notificação por E-mail */
+.notif-toggle-row {
   display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.6rem 0.85rem;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.75rem 0.95rem;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--text-secondary);
   transition: all 0.2s ease;
   user-select: none;
 }
 
-.notif-chip-select:hover,
-.notif-chip-select.active {
+.notif-toggle-row:hover,
+.notif-toggle-row.active {
   border-color: var(--brand-primary);
-  color: var(--text-primary);
   background-color: var(--bg-surface);
 }
 
-.notif-chip-select.active {
+.notif-toggle-row.active {
   box-shadow: 0 0 0 1px var(--brand-primary);
 }
 
 .notif-checkbox-input {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   cursor: pointer;
   accent-color: var(--brand-primary);
-  margin: 0;
+  margin-top: 2px;
   flex-shrink: 0;
 }
 
-.icon-whatsapp {
-  color: #25d366;
+.notif-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
-.whatsapp-compact-field {
+.notif-toggle-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notif-toggle-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.test-notif-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  background-color: var(--bg-surface-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-color);
+}
+
+.btn-test-notif {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-test-notif:hover:not(:disabled) {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+.btn-test-notif:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.test-notif-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   ABA DE SEGURANÇA: TROCA DE SENHA & EXCLUSÃO DE CONTA
+   ========================================================= */
+.security-section-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.25rem;
+}
+
+.security-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.security-card-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.icon-security-key {
+  color: var(--brand-primary);
+}
+
+.security-subtext {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+}
+
+.security-action-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+}
+
+.btn-update-password {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, #1d4ed8 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-update-password:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-update-password:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Zona de Perigo */
+.danger-zone-card {
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.15rem;
+}
+
+.danger-zone-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.icon-danger-warning {
+  color: #ef4444;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.danger-zone-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ef4444;
+  margin: 0 0 2px 0;
+}
+
+.danger-zone-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.danger-zone-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.danger-zone-warning-text {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.btn-trigger-delete-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.95rem;
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.btn-trigger-delete-account:hover {
+  background-color: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35);
+}
+
+/* =========================================================
+   MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE CONTA (SUBMODAL)
+   ========================================================= */
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(5px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
   animation: fadeIn 0.2s ease-out;
 }
 
-.whatsapp-compact-field .input-whatsapp {
-  border-color: rgba(37, 211, 102, 0.4) !important;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  padding: 0.6rem 0.85rem;
-  font-size: 0.88rem;
+.delete-confirm-card {
+  background-color: var(--bg-surface);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-lg);
+  max-width: 460px;
+  width: 100%;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+  animation: scaleIn 0.25s ease-out;
 }
 
-.whatsapp-compact-field .input-whatsapp:focus {
-  border-color: #25d366 !important;
-  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.2) !important;
+.delete-confirm-icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+}
+
+.delete-confirm-card h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.delete-confirm-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 1.25rem;
+}
+
+.delete-confirm-text strong {
+  color: #ef4444;
+}
+
+.compact-error {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.delete-confirm-form {
+  text-align: left;
+}
+
+.input-danger-focus:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.btn-confirm-delete-forever {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.15rem;
+  background-color: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.35);
+}
+
+.btn-confirm-delete-forever:hover:not(:disabled) {
+  background-color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+}
+
+.btn-confirm-delete-forever:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Nível de Acesso Compacto */
@@ -2439,21 +2733,41 @@ body {
 }
 
 /* =========================================================
-   BANNER DE NOTIFICAÇÃO: LIVRO FAVORITO CHEGOU NA ESTANTE
+   BANNER FLUTUANTE DE NOTIFICAÇÃO: LIVRO FAVORITO NA ESTANTE
+   Aparece por cima dos outros cards (overlay) por 5 segundos
    ========================================================= */
 .wishlist-alert-banner {
+  position: fixed;
+  top: 85px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1080px, calc(100% - 2.5rem));
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  padding: 1.25rem 1.75rem;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(2, 132, 199, 0.18) 100%);
+  padding: 1.15rem 1.65rem;
+  background-color: var(--bg-surface-elevated, #1e293b);
+  background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(2, 132, 199, 0.16) 100%);
   border: 2px solid #10b981;
   border-radius: var(--radius-lg);
-  margin-bottom: 2rem;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
-  animation: slideDown 0.3s ease-out;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), 0 0 35px rgba(16, 185, 129, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: floatBannerIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   flex-wrap: wrap;
+}
+
+@keyframes floatBannerIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -25px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .wishlist-alert-left {

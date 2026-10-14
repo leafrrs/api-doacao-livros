@@ -13,8 +13,13 @@ export function setAuth(token, usuario) {
 
 // Limpa dados ao deslogar
 export function clearAuth() {
+  const user = getCurrentUser();
+  if (user?.id) {
+    localStorage.removeItem(`reconecta_favoritos_${user.id}`);
+  }
   localStorage.removeItem("token");
   localStorage.removeItem("usuario");
+  localStorage.removeItem("reconecta_favoritos");
 }
 
 // Pega o usuário logado atualmente

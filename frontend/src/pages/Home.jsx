@@ -25,19 +25,46 @@ export default function Home() {
   const [alertaDesejoVisivel, setAlertaDesejoVisivel] = useState(false);
   const [alertaDesejoDispensado, setAlertaDesejoDispensado] = useState(false);
 
-  // Favoritos persistidos no localStorage
+  const usuario = getCurrentUser();
+
+  // Limpa chave legada não isolada do navegador
+  useEffect(() => {
+    localStorage.removeItem('reconecta_favoritos');
+  }, []);
+
+  // Favoritos isolados por usuário (chave única com ID)
   const [favoritos, setFavoritos] = useState(() => {
-    const saved = localStorage.getItem('reconecta_favoritos');
-    return saved ? JSON.parse(saved) : [];
+    if (!usuario?.id) return [];
+    const saved = localStorage.getItem(`reconecta_favoritos_${usuario.id}`);
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [feedback, setFeedback] = useState({ tipo: '', mensagem: '' });
-  const usuario = getCurrentUser();
 
-  // Salva favoritos sempre que mudar
+  // Salva favoritos apenas para o usuário atual
   useEffect(() => {
-    localStorage.setItem('reconecta_favoritos', JSON.stringify(favoritos));
-  }, [favoritos]);
+    if (usuario?.id) {
+      localStorage.setItem(`reconecta_favoritos_${usuario.id}`, JSON.stringify(favoritos));
+    }
+  }, [favoritos, usuario?.id]);
+
+  // Atualiza favoritos quando o usuário mudar
+  useEffect(() => {
+    if (!usuario?.id) {
+      setFavoritos([]);
+    } else {
+      const saved = localStorage.getItem(`reconecta_favoritos_${usuario.id}`);
+      try {
+        setFavoritos(saved ? JSON.parse(saved) : []);
+      } catch {
+        setFavoritos([]);
+      }
+    }
+  }, [usuario?.id]);
 
   // Carregar dados da API
   async function carregarDados() {
@@ -47,10 +74,21 @@ export default function Home() {
       const dataEstante = await apiRequest('/livros');
       setLivros(dataEstante);
 
-      // 2. Se logado, busca os livros do próprio usuário para alimentar as abas laterais
+      // 2. Se logado, busca os livros do próprio usuário e lista de desejos sincronizada
       if (usuario) {
         const dataMeus = await apiRequest('/livros/meus').catch(() => []);
         setLivrosUsuario(dataMeus);
+
+        const dataFavoritos = await apiRequest('/favoritos').catch(() => []);
+        if (Array.isArray(dataFavoritos)) {
+          setFavoritos(dataFavoritos);
+          if (usuario.id) {
+            localStorage.setItem(`reconecta_favoritos_${usuario.id}`, JSON.stringify(dataFavoritos));
+          }
+        }
+      } else {
+        setLivrosUsuario([]);
+        setFavoritos([]);
       }
     } catch (err) {
       setFeedback({ tipo: 'erro', mensagem: 'Não foi possível carregar os livros. Verifique se o backend está ligado.' });
@@ -134,6 +172,11 @@ export default function Home() {
         f => (f.id && livro.id ? f.id !== livro.id : f.titulo.toLowerCase().trim() !== tituloNormalizado)
       ));
       setFeedback({ tipo: 'info', mensagem: `"${livro.titulo}" removido dos seus favoritos.` });
+
+      // Sincroniza remoção no backend
+      apiRequest(`/favoritos/${encodeURIComponent(livro.id || livro.titulo)}`, {
+        method: 'DELETE',
+      }).catch(err => console.warn('Erro ao remover favorito no servidor:', err));
     } else {
       const novoFavorito = {
         id: livro.id || `ext-${livro.isbn || Date.now()}`,
@@ -146,17 +189,21 @@ export default function Home() {
 
       setFavoritos(prev => [...prev, novoFavorito]);
 
-      // Monta mensagem indicando o canal de aviso ativo
-      let canal = 'E-mail';
-      if (usuario.notificarWhatsapp && usuario.notificarEmail) {
-        canal = 'E-mail e WhatsApp';
-      } else if (usuario.notificarWhatsapp) {
-        canal = 'WhatsApp';
-      }
+      // Sincroniza adição no backend para que o usuário receba notificações quando o livro for doado
+      apiRequest('/favoritos', {
+        method: 'POST',
+        body: JSON.stringify({
+          titulo: livro.titulo,
+          autor: livro.autor,
+          isbn: livro.isbn || null,
+          capaId: livro.capaId || livro.capa_id || null,
+        }),
+      }).catch(err => console.warn('Erro ao salvar favorito no servidor:', err));
 
+      const avisoEmail = usuario.notificarEmail ? ` Você receberá um aviso por e-mail (${usuario.email}) assim que este exemplar entrar na Estante Geral.` : '';
       setFeedback({
         tipo: 'sucesso',
-        mensagem: `"${livro.titulo}" adicionado à sua Lista de Desejos! Você receberá um aviso por ${canal} assim que este exemplar entrar na Estante Geral.`,
+        mensagem: `"${livro.titulo}" adicionado à sua Lista de Desejos!${avisoEmail}`,
       });
     }
   }
@@ -165,6 +212,10 @@ export default function Home() {
     setFavoritos(prev => prev.filter(
       f => f.id !== livroIdOuTitulo && f.titulo !== livroIdOuTitulo
     ));
+    // Sincroniza remoção no backend
+    apiRequest(`/favoritos/${encodeURIComponent(livroIdOuTitulo)}`, {
+      method: 'DELETE',
+    }).catch(err => console.warn('Erro ao remover favorito no servidor:', err));
   }
 
   // Ação: Pegar Livro (Resgate)
@@ -254,11 +305,8 @@ export default function Home() {
                 O exemplar <strong>"{livrosFavoritosDisponiveis[0].titulo}"</strong> ({livrosFavoritosDisponiveis[0].autor}) está disponível para resgate na Estante Geral de Doações!
               </p>
               <div className="wishlist-alert-channels">
-                {usuario?.notificarWhatsapp && usuario?.whatsapp && (
-                  <span className="channel-chip whatsapp">📲 Alerta WhatsApp ativo: {usuario.whatsapp}</span>
-                )}
                 {usuario?.notificarEmail && (
-                  <span className="channel-chip email">✉️ Alerta E-mail ativo: {usuario.email}</span>
+                  <span className="channel-chip email">✉️ Alerta enviado para: {usuario.email}</span>
                 )}
               </div>
             </div>
@@ -355,10 +403,6 @@ export default function Home() {
                   onPegar={handlePegarLivro}
                   onExcluir={handleExcluirLivro}
                   onEditar={(l) => setLivroParaEditar(l)}
-                  onToggleFavorito={handleToggleFavorito}
-                  isFavorito={favoritos.some(
-                    f => (f.id && f.id === livro.id) || (f.titulo && f.titulo.toLowerCase().trim() === livro.titulo.toLowerCase().trim())
-                  )}
                   loading={loading}
                 />
               ))}

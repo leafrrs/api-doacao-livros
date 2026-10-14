@@ -104,22 +104,15 @@ export default function UserSidebarCard({
           </span>
           {abaLateral === 'favoritos' && (
             <span
-              className={`notif-badge ${(!usuario.notificarEmail && !usuario.notificarWhatsapp) ? 'notif-badge-disabled' : ''}`}
+              className={`notif-badge ${!usuario.notificarEmail ? 'notif-badge-disabled' : ''}`}
               title={
-                usuario.notificarWhatsapp && usuario.notificarEmail
-                  ? `Avisos ativados por E-mail (${usuario.email}) e WhatsApp: ${usuario.whatsapp || 'configurado'}`
-                  : usuario.notificarWhatsapp
-                  ? `Avisos ativados por WhatsApp: ${usuario.whatsapp || 'configurado'}`
-                  : usuario.notificarEmail
+                usuario.notificarEmail
                   ? `Avisos ativados por E-mail (${usuario.email})`
-                  : 'Nenhum canal de notificação ativo. Configure em Dados do Leitor.'
+                  : 'Avisos por e-mail desativados. Configure em Dados do Leitor.'
               }
             >
               <BellRing size={12} />
-              {usuario.notificarWhatsapp && usuario.notificarEmail && ' E-mail + WhatsApp'}
-              {!usuario.notificarWhatsapp && usuario.notificarEmail && ' Alerta E-mail'}
-              {usuario.notificarWhatsapp && !usuario.notificarEmail && ' Alerta WhatsApp'}
-              {!usuario.notificarWhatsapp && !usuario.notificarEmail && ' Alertas Inativos'}
+              {usuario.notificarEmail ? ' Alerta E-mail Ativo' : ' Alertas Inativos'}
             </span>
           )}
         </div>

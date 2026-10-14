@@ -1,8 +1,8 @@
 import React from 'react';
-import { Book, Trash2, HeartHandshake, User, Calendar, Heart, Edit3 } from 'lucide-react';
+import { Book, Trash2, HeartHandshake, User, Calendar, Edit3 } from 'lucide-react';
 import { getCurrentUser } from '../services/api';
 
-export default function BookCard({ livro, onPegar, onExcluir, onEditar, onToggleFavorito, isFavorito, loading }) {
+export default function BookCard({ livro, onPegar, onExcluir, onEditar, loading }) {
   const usuarioLogado = getCurrentUser();
 
   const capaUrl = livro.capaId
@@ -35,17 +35,6 @@ export default function BookCard({ livro, onPegar, onExcluir, onEditar, onToggle
         <span className={`badge-condicao ${coresCondicao[livro.condicao] || 'badge-bom'}`}>
           {livro.condicao ? livro.condicao.replace('_', ' ') : 'BOM ESTADO'}
         </span>
-
-        {/* Botão de Favoritar / Notificar com Coração */}
-        {usuarioLogado && (
-          <button
-            className={`btn-card-fav ${isFavorito ? 'favorited' : ''}`}
-            onClick={() => onToggleFavorito(livro)}
-            title={isFavorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos (Avisar quando disponível)'}
-          >
-            <Heart size={18} fill={isFavorito ? '#ef4444' : 'none'} color={isFavorito ? '#ef4444' : '#fff'} />
-          </button>
-        )}
       </div>
 
       <div className="book-info">

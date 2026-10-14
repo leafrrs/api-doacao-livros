@@ -3,6 +3,10 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const {
+  notificarInteressadosNoLivro,
+  enviarNotificacaoEmail,
+} = require("./services/notificacaoService");
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "chave_padrao_desenvolvimento_trocar_em_prod";
@@ -208,6 +212,91 @@ app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
   }
 });
 
+// Rota PATCH para trocar a senha do leitor
+app.patch("/usuarios/senha", autenticarToken, async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({ erro: "A senha atual e a nova senha são obrigatórias." });
+    }
+
+    if (novaSenha.length < 6) {
+      return res.status(400).json({ erro: "A nova senha deve ter no mínimo 6 caracteres." });
+    }
+
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    // Verifica se a senha atual está correta
+    const senhaValida = await bcrypt.compare(senhaAtual, usuario.senha);
+    if (!senhaValida) {
+      return res.status(400).json({ erro: "A senha atual informada está incorreta." });
+    }
+
+    // Verifica se a nova senha é idêntica à anterior
+    const mesmaSenha = await bcrypt.compare(novaSenha, usuario.senha);
+    if (mesmaSenha) {
+      return res.status(400).json({ erro: "A nova senha deve ser diferente da senha atual." });
+    }
+
+    // Criptografa a nova senha e atualiza
+    const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+    await prisma.usuario.update({
+      where: { id: req.usuario.id },
+      data: { senha: novaSenhaHash },
+    });
+
+    res.json({ mensagem: "Senha alterada com sucesso!" });
+  } catch (error) {
+    console.error("Erro ao alterar senha:", error);
+    res.status(500).json({ erro: "Erro interno ao alterar senha." });
+  }
+});
+
+// Rota DELETE para excluir a conta com checagem de senha
+app.delete("/usuarios/conta", autenticarToken, async (req, res) => {
+  try {
+    const { senha } = req.body;
+
+    if (!senha) {
+      return res.status(400).json({ erro: "Por favor, digite sua senha para confirmar a exclusão da conta." });
+    }
+
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    // Checagem rigorosa de segurança por senha
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) {
+      return res.status(400).json({ erro: "Senha incorreta. Não foi possível excluir sua conta." });
+    }
+
+    // Exclusão em cascata dos dados e da conta
+    await prisma.$transaction([
+      prisma.favorito.deleteMany({ where: { usuarioId: req.usuario.id } }),
+      prisma.livro.deleteMany({ where: { usuarioId: req.usuario.id } }),
+      prisma.usuario.delete({ where: { id: req.usuario.id } }),
+    ]);
+
+    console.log(`🗑️ [Conta Excluída] Usuário ${usuario.nome} (${usuario.email}) excluiu permanentemente sua conta.`);
+    res.json({ mensagem: "Sua conta foi excluída com sucesso." });
+  } catch (error) {
+    console.error("Erro ao excluir conta:", error);
+    res.status(500).json({ erro: "Erro interno ao excluir a conta." });
+  }
+});
+
 app.post("/usuarios", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -316,6 +405,12 @@ app.post("/livros", autenticarToken, async (req, res) => {
         },
       },
     });
+
+    // Dispara notificações automáticas por e-mail e WhatsApp para leitores que favoritaram esse livro
+    notificarInteressadosNoLivro(prisma, novoLivro, usuarioId).catch((err) => {
+      console.error("Erro assíncrono ao disparar notificações de livro doado:", err);
+    });
+
     res.status(201).json(novoLivro);
   } catch (error) {
     console.error("Erro ao cadastrar livro:", error);
@@ -448,6 +543,13 @@ app.patch("/livros/:id", autenticarToken, async (req, res) => {
         usuario: { select: { id: true, nome: true } },
       },
     });
+    // Se o livro foi tornado disponível novamente (redoado para a comunidade), avisa os interessados
+    if (dadosParaAtualizar.disponivel === true) {
+      notificarInteressadosNoLivro(prisma, livroAtualizado, req.usuario.id).catch((err) => {
+        console.error("Erro assíncrono ao notificar redoação de livro:", err);
+      });
+    }
+
     res.json({
       mensagem: "Exemplar atualizado com sucesso!",
       livro: livroAtualizado,
@@ -621,6 +723,138 @@ app.delete("/livros/:id", autenticarToken, async (req, res) => {
   } catch (error) {
     console.error("Erro ao deletar livro:", error);
     res.status(500).json({ erro: "Erro interno ao tentar remover o livro." });
+  }
+});
+
+// ========================================================
+//          ROTAS DE LISTA DE DESEJOS / FAVORITOS
+// ========================================================
+
+// 1. Listar favoritos do usuário autenticado
+app.get("/favoritos", autenticarToken, async (req, res) => {
+  try {
+    const favoritos = await prisma.favorito.findMany({
+      where: { usuarioId: req.usuario.id },
+      orderBy: { criadoEm: "desc" },
+    });
+    res.json(favoritos);
+  } catch (error) {
+    console.error("Erro ao listar favoritos:", error);
+    res.status(500).json({ erro: "Erro ao buscar lista de desejos." });
+  }
+});
+
+// 2. Adicionar livro aos favoritos
+app.post("/favoritos", autenticarToken, async (req, res) => {
+  try {
+    const { titulo, autor, isbn, capaId } = req.body;
+    if (!titulo || !String(titulo).trim()) {
+      return res.status(400).json({ erro: "O título do livro é obrigatório." });
+    }
+
+    const tituloLimpo = String(titulo).trim();
+
+    // Upsert para garantir unicidade por usuário e título
+    const favorito = await prisma.favorito.upsert({
+      where: {
+        usuarioId_titulo: {
+          usuarioId: req.usuario.id,
+          titulo: tituloLimpo,
+        },
+      },
+      update: {
+        autor: autor ? String(autor).trim() : null,
+        isbn: isbn ? String(isbn).trim() : null,
+        capaId: capaId ? Number(capaId) : null,
+      },
+      create: {
+        titulo: tituloLimpo,
+        autor: autor ? String(autor).trim() : null,
+        isbn: isbn ? String(isbn).trim() : null,
+        capaId: capaId ? Number(capaId) : null,
+        usuarioId: req.usuario.id,
+      },
+    });
+
+    res.status(201).json(favorito);
+  } catch (error) {
+    console.error("Erro ao adicionar favorito:", error);
+    res.status(500).json({ erro: "Erro interno ao salvar favorito." });
+  }
+});
+
+// 3. Remover livro dos favoritos (por ID ou por título)
+app.delete("/favoritos/:idOuTitulo", autenticarToken, async (req, res) => {
+  try {
+    const { idOuTitulo } = req.params;
+    const numId = parseInt(idOuTitulo);
+
+    if (!isNaN(numId)) {
+      await prisma.favorito.deleteMany({
+        where: {
+          id: numId,
+          usuarioId: req.usuario.id,
+        },
+      });
+    } else {
+      const todos = await prisma.favorito.findMany({
+        where: { usuarioId: req.usuario.id },
+      });
+      const alvo = todos.find(
+        (f) => f.titulo.toLowerCase().trim() === decodeURIComponent(idOuTitulo).toLowerCase().trim()
+      );
+      if (alvo) {
+        await prisma.favorito.delete({
+          where: { id: alvo.id },
+        });
+      }
+    }
+
+    res.json({ mensagem: "Livro removido dos favoritos com sucesso." });
+  } catch (error) {
+    console.error("Erro ao remover favorito:", error);
+    res.status(500).json({ erro: "Erro interno ao remover favorito." });
+  }
+});
+
+// 4. Rota para testar disparo imediato de notificação para o usuário logado
+app.post("/notificacoes/testar", autenticarToken, async (req, res) => {
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    const { titulo, autor } = req.body;
+    const livroSimulado = {
+      titulo: titulo || "O Pequeno Príncipe",
+      autor: autor || "Antoine de Saint-Exupéry",
+      condicao: "BOM_ESTADO",
+    };
+
+    const resultado = {
+      email: null,
+    };
+
+    if (usuario.notificarEmail && usuario.email) {
+      resultado.email = await enviarNotificacaoEmail({
+        destinatarioEmail: usuario.email,
+        destinatarioNome: usuario.nome,
+        livro: livroSimulado,
+        doadorNome: "Biblioteca Reconecta",
+      });
+    }
+
+    res.json({
+      mensagem: "Teste de notificação por e-mail executado com sucesso!",
+      resultado,
+    });
+  } catch (error) {
+    console.error("Erro no teste de notificação:", error);
+    res.status(500).json({ erro: "Erro ao executar teste de notificação." });
   }
 });
 
