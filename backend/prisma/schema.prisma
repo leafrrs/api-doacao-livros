@@ -8,12 +8,15 @@ datasource db {
 }
 
 model Usuario {
-  id       Int     @id @default(autoincrement())
-  nome     String
-  email    String  @unique
-  senha    String
-  role   String  @default("USER")
-  livros   Livro[] // Indica que um usuário tem uma lista de livros
+  id        Int     @id @default(autoincrement())
+  nome      String
+  email     String  @unique
+  senha     String
+  role      String  @default("USER")
+  bio       String? @default("Amante da leitura transformando estantes paradas em pontes de conhecimento.")
+  fotoUrl   String?
+  corBanner String? @default("linear-gradient(135deg, #0284c7 0%, #2563eb 100%)")
+  livros    Livro[] // Indica que um usuário tem uma lista de livros
 }
 
 model Livro {

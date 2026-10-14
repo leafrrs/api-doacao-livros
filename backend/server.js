@@ -122,6 +122,9 @@ app.get("/auth/me", autenticarToken, async (req, res) => {
         nome: true,
         email: true,
         role: true,
+        bio: true,
+        fotoUrl: true,
+        corBanner: true,
       },
     });
     if (!usuario) {
@@ -131,6 +134,51 @@ app.get("/auth/me", autenticarToken, async (req, res) => {
   } catch (error) {
     console.error("Erro ao buscar dados do usuário autenticado:", error);
     res.status(500).json({ erro: "Erro interno ao buscar perfil." });
+  }
+});
+
+// Rota PATCH para atualizar personalização do perfil (Bio, Foto e Cor do Banner)
+app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
+  try {
+    const { bio, fotoUrl, corBanner } = req.body;
+    const dadosAtualizar = {};
+
+    if (bio !== undefined) {
+      if (bio.length > 300) {
+        return res.status(400).json({ erro: "A bio deve ter no máximo 300 caracteres." });
+      }
+      dadosAtualizar.bio = bio;
+    }
+
+    if (fotoUrl !== undefined) {
+      dadosAtualizar.fotoUrl = fotoUrl;
+    }
+
+    if (corBanner !== undefined) {
+      dadosAtualizar.corBanner = corBanner;
+    }
+
+    const usuarioAtualizado = await prisma.usuario.update({
+      where: { id: req.usuario.id },
+      data: dadosAtualizar,
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        role: true,
+        bio: true,
+        fotoUrl: true,
+        corBanner: true,
+      },
+    });
+
+    res.json({
+      mensagem: "Perfil atualizado com sucesso!",
+      usuario: usuarioAtualizado,
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar perfil:", error);
+    res.status(500).json({ erro: "Erro interno ao atualizar o perfil." });
   }
 });
 

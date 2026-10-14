@@ -138,6 +138,7 @@ export default function Home() {
         <section className="left-column">
           <UserSidebarCard
             usuario={usuario}
+            onUsuarioAtualizado={() => carregarDados()}
             abaLateral={abaLateral}
             setAbaLateral={setAbaLateral}
             livrosPegos={livrosPegos}
