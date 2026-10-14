@@ -1,0 +1,126 @@
+import React from 'react';
+import { User, BookMarked, Gift, Heart, LogIn, BellRing, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+export default function UserSidebarCard({
+  usuario,
+  abaLateral,
+  setAbaLateral,
+  livrosPegos = [],
+  livrosDoados = [],
+  favoritos = [],
+  onRemoverFavorito,
+}) {
+  if (!usuario) {
+    return (
+      <aside className="profile-card not-logged">
+        <div className="avatar-placeholder">
+          <User size={48} />
+        </div>
+        <h3>Bem-vindo ao Reconecta!</h3>
+        <p className="bio-text">
+          Faça login para pegar livros, acompanhar seus favoritos com notificações ativas e doar para a comunidade.
+        </p>
+        <Link to="/login" className="btn-primary-full">
+          <LogIn size={18} />
+          <span>Fazer Login / Cadastrar</span>
+        </Link>
+      </aside>
+    );
+  }
+
+  // Lista selecionada para renderizar abaixo dos botões
+  let listaAtual = [];
+  if (abaLateral === 'pegos') listaAtual = livrosPegos;
+  if (abaLateral === 'doados') listaAtual = livrosDoados;
+  if (abaLateral === 'favoritos') listaAtual = favoritos;
+
+  return (
+    <aside className="profile-card">
+      <div className="profile-header-banner"></div>
+      <div className="profile-avatar-wrapper">
+        <div className="profile-avatar-circle">
+          {usuario.nome ? usuario.nome[0].toUpperCase() : 'U'}
+        </div>
+      </div>
+
+      <div className="profile-main-info">
+        <h3 className="profile-name">{usuario.nome}</h3>
+        <p className="profile-role-badge">
+          {usuario.role === 'ADMIN' ? '🛡️ Administrador' : '📖 Leitor Consciente'}
+        </p>
+        <p className="profile-bio">
+          Amante da leitura transformando estantes paradas em pontes de conhecimento.
+        </p>
+      </div>
+
+      {/* As 3 Seções limpas apenas com os nomes e ícones (sem números grudados) */}
+      <div className="profile-stats-tabs three-columns clean-tabs">
+        <button
+          className={`stat-tab ${abaLateral === 'pegos' ? 'active' : ''}`}
+          onClick={() => setAbaLateral('pegos')}
+        >
+          <BookMarked size={18} className="tab-icon" />
+          <span className="stat-label">Pegos</span>
+        </button>
+
+        <button
+          className={`stat-tab ${abaLateral === 'doados' ? 'active' : ''}`}
+          onClick={() => setAbaLateral('doados')}
+        >
+          <Gift size={18} className="tab-icon" />
+          <span className="stat-label">Doados</span>
+        </button>
+
+        <button
+          className={`stat-tab ${abaLateral === 'favoritos' ? 'active' : ''}`}
+          onClick={() => setAbaLateral('favoritos')}
+        >
+          <Heart size={18} className="tab-icon icon-fav-tab" />
+          <span className="stat-label">Favoritos</span>
+        </button>
+      </div>
+
+      {/* A Lista abaixo das seções */}
+      <div className="sidebar-list-container">
+        <div className="sidebar-list-header">
+          <span className="sidebar-list-title">
+            {abaLateral === 'pegos' && '📖 Livros em sua posse:'}
+            {abaLateral === 'doados' && '🎁 Livros que você doou:'}
+            {abaLateral === 'favoritos' && '❤️ Lista de Desejos:'}
+          </span>
+          {abaLateral === 'favoritos' && (
+            <span className="notif-badge" title="Você será avisado por E-mail e WhatsApp quando o livro chegar na Estante Geral">
+              <BellRing size={12} /> Alerta Ativo
+            </span>
+          )}
+        </div>
+
+        {listaAtual.length === 0 ? (
+          <p className="sidebar-empty-msg">Nenhum livro nesta lista ainda.</p>
+        ) : (
+          <ul className="sidebar-items-list">
+            {listaAtual.map((item) => (
+              <li key={item.id} className="sidebar-book-item">
+                <div className="sidebar-book-text">
+                  <strong className="sidebar-book-title">{item.titulo}</strong>
+                  <span className="sidebar-book-author">{item.autor}</span>
+                </div>
+
+                {abaLateral === 'favoritos' && onRemoverFavorito && (
+                  <button
+                    className="btn-remove-fav"
+                    onClick={() => onRemoverFavorito(item.id)}
+                    title="Remover dos favoritos"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </aside>
+  );
+}

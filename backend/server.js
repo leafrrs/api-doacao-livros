@@ -439,7 +439,8 @@ app.get("/livros/buscar", async (req, res) => {
         .json({ erro: "Por favor, informe um título para buscar." });
     }
 
-    const urlDaApiExterna = `https://openlibrary.org/search.json?title=${tituloBuscado}&language=por&limit=5`;
+    // Busca focando em edições em português na Open Library
+    const urlDaApiExterna = `https://openlibrary.org/search.json?q=${encodeURIComponent(tituloBuscado)}&language=por&limit=6`;
     const respostaOpenLibrary = await fetch(urlDaApiExterna, {
       headers: { "User-Agent": "ProjetoAcademicoRecode/1.0" },
     });
