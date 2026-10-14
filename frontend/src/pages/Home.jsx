@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import UserSidebarCard from '../components/UserSidebarCard';
 import BookCard from '../components/BookCard';
+import ExternalBookCard from '../components/ExternalBookCard';
 import SearchBar from '../components/SearchBar';
 import FeedbackMessage from '../components/FeedbackMessage';
 import EditBookModal from '../components/EditBookModal';
 import { apiRequest, getCurrentUser } from '../services/api';
-import { Library, Loader2, Plus } from 'lucide-react';
+import { Library, Loader2, Plus, BellRing, Sparkles, Globe, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Home() {
@@ -15,7 +16,15 @@ export default function Home() {
   const [termoBusca, setTermoBusca] = useState('');
   const [abaLateral, setAbaLateral] = useState('pegos'); // 'pegos', 'doados', 'favoritos'
   const [livroParaEditar, setLivroParaEditar] = useState(null);
+
+  // Busca no acervo externo (Open Library) para livros que ainda não estão na estante
+  const [livrosExternos, setLivrosExternos] = useState([]);
+  const [buscandoExterno, setBuscandoExterno] = useState(false);
   
+  // Alerta de Livro Desejado que entrou na Estante (Some após 5 segundos)
+  const [alertaDesejoVisivel, setAlertaDesejoVisivel] = useState(false);
+  const [alertaDesejoDispensado, setAlertaDesejoDispensado] = useState(false);
+
   // Favoritos persistidos no localStorage
   const [favoritos, setFavoritos] = useState(() => {
     const saved = localStorage.getItem('reconecta_favoritos');
@@ -54,23 +63,108 @@ export default function Home() {
     carregarDados();
   }, []);
 
-  // Adicionar / Remover dos Favoritos
+  // Busca reativa externa na Open Library quando o usuário digita na barra
+  useEffect(() => {
+    const termo = termoBusca.trim();
+    if (termo.length < 3) {
+      setLivrosExternos([]);
+      setBuscandoExterno(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setBuscandoExterno(true);
+      try {
+        const data = await apiRequest(`/livros/buscar?titulo=${encodeURIComponent(termo)}`);
+        
+        // Exclui livros que já estão disponíveis na estante local
+        const titulosLocais = livros.map(l => l.titulo.toLowerCase().trim());
+        const filtrados = (data || []).filter(ext => {
+          const tExt = (ext.titulo || '').toLowerCase().trim();
+          return !titulosLocais.some(tLoc => tLoc === tExt || tLoc.includes(tExt) || tExt.includes(tLoc));
+        });
+
+        setLivrosExternos(filtrados);
+      } catch (err) {
+        setLivrosExternos([]);
+      } finally {
+        setBuscandoExterno(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [termoBusca, livros]);
+
+  // DETECÇÃO: Livros favoritados pelo leitor que estão disponíveis na Estante Geral
+  const livrosFavoritosDisponiveis = useMemo(() => {
+    if (!usuario) return [];
+    return livros.filter(livroEstante =>
+      livroEstante.disponivel &&
+      favoritos.some(
+        fav => fav.titulo && fav.titulo.toLowerCase().trim() === livroEstante.titulo.toLowerCase().trim()
+      )
+    );
+  }, [usuario, livros, favoritos]);
+
+  // Temporizador: Dispara o alerta e faz desaparecer após 5 segundos
+  useEffect(() => {
+    if (livrosFavoritosDisponiveis.length > 0 && !alertaDesejoDispensado) {
+      setAlertaDesejoVisivel(true);
+      const timer = setTimeout(() => {
+        setAlertaDesejoVisivel(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [livrosFavoritosDisponiveis.length, alertaDesejoDispensado]);
+
+  // Adicionar / Remover dos Favoritos (Funciona tanto para livros locais quanto da Open Library)
   function handleToggleFavorito(livro) {
-    const jaFavorito = favoritos.some(f => f.id === livro.id);
+    if (!usuario) {
+      setFeedback({ tipo: 'info', mensagem: 'Faça login para salvar livros na sua Lista de Desejos e receber alertas.' });
+      return;
+    }
+
+    const tituloNormalizado = (livro.titulo || '').toLowerCase().trim();
+    const jaFavorito = favoritos.some(
+      f => (f.id && livro.id && f.id === livro.id) || (f.titulo && f.titulo.toLowerCase().trim() === tituloNormalizado)
+    );
+
     if (jaFavorito) {
-      setFavoritos(prev => prev.filter(f => f.id !== livro.id));
+      setFavoritos(prev => prev.filter(
+        f => (f.id && livro.id ? f.id !== livro.id : f.titulo.toLowerCase().trim() !== tituloNormalizado)
+      ));
       setFeedback({ tipo: 'info', mensagem: `"${livro.titulo}" removido dos seus favoritos.` });
     } else {
-      setFavoritos(prev => [...prev, livro]);
+      const novoFavorito = {
+        id: livro.id || `ext-${livro.isbn || Date.now()}`,
+        titulo: livro.titulo,
+        autor: livro.autor,
+        anoPublicacao: livro.anoPublicacao || livro.ano_publicacao,
+        capaId: livro.capaId || livro.capa_id,
+        isExterno: !livro.id,
+      };
+
+      setFavoritos(prev => [...prev, novoFavorito]);
+
+      // Monta mensagem indicando o canal de aviso ativo
+      let canal = 'E-mail';
+      if (usuario.notificarWhatsapp && usuario.notificarEmail) {
+        canal = 'E-mail e WhatsApp';
+      } else if (usuario.notificarWhatsapp) {
+        canal = 'WhatsApp';
+      }
+
       setFeedback({
         tipo: 'sucesso',
-        mensagem: `"${livro.titulo}" adicionado aos favoritos! Você será notificado por e-mail e WhatsApp se este exemplar for atualizado.`,
+        mensagem: `"${livro.titulo}" adicionado à sua Lista de Desejos! Você receberá um aviso por ${canal} assim que este exemplar entrar na Estante Geral.`,
       });
     }
   }
 
-  function handleRemoverFavorito(livroId) {
-    setFavoritos(prev => prev.filter(f => f.id !== livroId));
+  function handleRemoverFavorito(livroIdOuTitulo) {
+    setFavoritos(prev => prev.filter(
+      f => f.id !== livroIdOuTitulo && f.titulo !== livroIdOuTitulo
+    ));
   }
 
   // Ação: Pegar Livro (Resgate)
@@ -87,11 +181,13 @@ export default function Home() {
       });
 
       // REGRA: Ao pegar o livro, remove automaticamente dos favoritos se estiver lá!
-      setFavoritos(prev => prev.filter(f => f.id !== livro.id));
+      setFavoritos(prev => prev.filter(
+        f => f.id !== livro.id && f.titulo.toLowerCase().trim() !== livro.titulo.toLowerCase().trim()
+      ));
 
       setFeedback({
         tipo: 'sucesso',
-        mensagem: 'Livro resgatado com sucesso! Já está na sua lista de livros em posse e foi retirado dos seus favoritos.',
+        mensagem: `"${livro.titulo}" resgatado com sucesso! Já está na sua lista de livros em posse e foi retirado dos seus favoritos.`,
       });
 
       carregarDados();
@@ -123,14 +219,15 @@ export default function Home() {
   const livrosPegos = livrosUsuario.filter(l => !l.disponivel);
   const livrosDoados = livrosUsuario.filter(l => l.disponivel);
 
-  // A Estante Geral (no centro) sempre exibe TODOS os livros disponíveis para resgate
+  // Filtragem da Estante Geral local por termo de busca
   let livrosEstanteGeral = livros;
   if (termoBusca.trim()) {
-    const termo = termoBusca.toLowerCase();
+    const termo = termoBusca.toLowerCase().trim();
     livrosEstanteGeral = livrosEstanteGeral.filter(
       l => l.titulo.toLowerCase().includes(termo) || l.autor.toLowerCase().includes(termo)
     );
   }
+
 
   return (
     <main className="reconecta-main-layout">
@@ -140,24 +237,73 @@ export default function Home() {
         onClose={() => setFeedback({ tipo: '', mensagem: '' })}
       />
 
+      {/* BANNER DE ALERTA: LIVRO DA LISTA DE DESEJOS DISPONÍVEL NA ESTANTE (Some em 5 segundos) */}
+      {alertaDesejoVisivel && livrosFavoritosDisponiveis.length > 0 && (
+        <div className="wishlist-alert-banner">
+          <div className="wishlist-alert-left">
+            <div className="wishlist-alert-icon-circle">
+              <BellRing size={24} className="bell-ring-pulse" />
+            </div>
+            <div className="wishlist-alert-details">
+              <div className="wishlist-alert-badge">
+                <Sparkles size={13} />
+                <span>Alerta da Sua Lista de Desejos</span>
+              </div>
+              <h4>🎉 Boa notícia, {usuario?.nome || 'Leitor'}! Seu livro favorito chegou!</h4>
+              <p className="wishlist-alert-book-title">
+                O exemplar <strong>"{livrosFavoritosDisponiveis[0].titulo}"</strong> ({livrosFavoritosDisponiveis[0].autor}) está disponível para resgate na Estante Geral de Doações!
+              </p>
+              <div className="wishlist-alert-channels">
+                {usuario?.notificarWhatsapp && usuario?.whatsapp && (
+                  <span className="channel-chip whatsapp">📲 Alerta WhatsApp ativo: {usuario.whatsapp}</span>
+                )}
+                {usuario?.notificarEmail && (
+                  <span className="channel-chip email">✉️ Alerta E-mail ativo: {usuario.email}</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="wishlist-alert-actions">
+            <button
+              className="btn-alert-resgatar"
+              onClick={() => handlePegarLivro(livrosFavoritosDisponiveis[0])}
+            >
+              Pegar Livro Agora 📖
+            </button>
+            <button
+              type="button"
+              className="btn-close-wishlist-alert"
+              onClick={() => {
+                setAlertaDesejoVisivel(false);
+                setAlertaDesejoDispensado(true);
+              }}
+              title="Dispensar aviso"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="layout-columns-container">
-        {/* Coluna da Esquerda: Card com 3 seções (Pegos, Doados, Favoritos) e Lista abaixo */}
+        {/* Coluna da Esquerda: Card do Usuário / Painel de Perfil */}
         <section className="left-column">
           <UserSidebarCard
             usuario={usuario}
-            onUsuarioAtualizado={() => carregarDados()}
             abaLateral={abaLateral}
             setAbaLateral={setAbaLateral}
             livrosPegos={livrosPegos}
             livrosDoados={livrosDoados}
             favoritos={favoritos}
+            livrosDisponiveis={livros}
             onRemoverFavorito={handleRemoverFavorito}
             onRedoarLivro={handleRedoarLivro}
             onExcluirLivro={handleExcluirLivro}
+            onPegarLivro={handlePegarLivro}
           />
         </section>
 
-        {/* Coluna da Direita: Estante Geral sempre visível */}
+        {/* Coluna da Direita: Estante Geral e Busca Global */}
         <section className="right-column">
           <div className="catalog-header-bar">
             <div className="catalog-title-area">
@@ -187,9 +333,13 @@ export default function Home() {
           ) : livrosEstanteGeral.length === 0 ? (
             <div className="empty-state">
               <Library size={48} className="empty-icon" />
-              <h3>Nenhum livro disponível no momento</h3>
-              <p>Que tal ser o primeiro a colocar um exemplar para circular?</p>
-              {usuario && (
+              <h3>Nenhum livro disponível na estante com esse nome</h3>
+              <p>
+                {termoBusca.trim()
+                  ? 'Veja abaixo os livros encontrados no acervo global para favoritar e ser avisado assim que alguém doar!'
+                  : 'Que tal ser o primeiro a colocar um exemplar para circular?'}
+              </p>
+              {usuario && !termoBusca.trim() && (
                 <Link to="/doar" className="btn-primary-action">
                   <Plus size={18} />
                   <span>Cadastrar Doação Agora</span>
@@ -206,10 +356,57 @@ export default function Home() {
                   onExcluir={handleExcluirLivro}
                   onEditar={(l) => setLivroParaEditar(l)}
                   onToggleFavorito={handleToggleFavorito}
-                  isFavorito={favoritos.some(f => f.id === livro.id)}
+                  isFavorito={favoritos.some(
+                    f => (f.id && f.id === livro.id) || (f.titulo && f.titulo.toLowerCase().trim() === livro.titulo.toLowerCase().trim())
+                  )}
                   loading={loading}
                 />
               ))}
+            </div>
+          )}
+
+          {/* SEÇÃO DA OPEN LIBRARY: LIVROS DO ACERVO GLOBAL (FORA DA ESTANTE) */}
+          {termoBusca.trim().length >= 3 && (
+            <div className="external-search-wrapper">
+              <div className="external-catalog-header">
+                <div className="external-title-group">
+                  <div className="external-badge-pill">
+                    <Globe size={13} />
+                    <span>Acervo Global Open Library</span>
+                  </div>
+                  <h3>Não está na estante? Favorite para ser avisado!</h3>
+                  <p>
+                    Encontrou o título que procurava? Clique em <strong>"Avisar quando doar"</strong>. Assim que alguém disponibilizar o exemplar no Reconecta, você receberá a notificação!
+                  </p>
+                </div>
+              </div>
+
+              {buscandoExterno ? (
+                <div className="external-loading-box">
+                  <Loader2 size={24} className="spinner" />
+                  <span>Consultando catálogo global de edições em português...</span>
+                </div>
+              ) : livrosExternos.length === 0 ? (
+                <div className="external-empty-box">
+                  <p>Nenhuma outra edição encontrada no acervo externo para "{termoBusca}".</p>
+                </div>
+              ) : (
+                <div className="books-grid external-grid">
+                  {livrosExternos.map((livroExt) => {
+                    const isFav = favoritos.some(
+                      f => f.titulo && f.titulo.toLowerCase().trim() === (livroExt.titulo || '').toLowerCase().trim()
+                    );
+                    return (
+                      <ExternalBookCard
+                        key={livroExt.isbn || livroExt.titulo}
+                        livro={livroExt}
+                        isFavorito={isFav}
+                        onToggleFavorito={handleToggleFavorito}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </section>

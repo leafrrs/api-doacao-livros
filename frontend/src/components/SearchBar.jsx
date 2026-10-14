@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 export default function SearchBar({ termo, setTermo, onBuscar }) {
   function handleSubmit(e) {
@@ -10,12 +10,12 @@ export default function SearchBar({ termo, setTermo, onBuscar }) {
   return (
     <form className="search-bar-form" onSubmit={handleSubmit}>
       <div className="search-input-wrapper">
-        <Search className="search-icon" size={20} />
+        <Search className="search-icon" size={18} />
         <input
           type="text"
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
-          placeholder="Pesquisar por título, autor ou palavra-chave..."
+          placeholder="Pesquisar por título, autor..."
           className="search-input"
         />
         {termo && (
@@ -23,14 +23,12 @@ export default function SearchBar({ termo, setTermo, onBuscar }) {
             type="button"
             className="search-clear-btn"
             onClick={() => setTermo('')}
+            title="Limpar pesquisa"
           >
             ×
           </button>
         )}
       </div>
-      <button type="submit" className="search-submit-btn">
-        <span>Buscar</span>
-      </button>
     </form>
   );
 }

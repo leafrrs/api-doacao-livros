@@ -13,7 +13,7 @@ const app = express();
 
 app.use(cors());
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 function validarEmail(email) {
   const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -125,6 +125,9 @@ app.get("/auth/me", autenticarToken, async (req, res) => {
         bio: true,
         fotoUrl: true,
         corBanner: true,
+        notificarEmail: true,
+        notificarWhatsapp: true,
+        whatsapp: true,
       },
     });
     if (!usuario) {
@@ -137,10 +140,10 @@ app.get("/auth/me", autenticarToken, async (req, res) => {
   }
 });
 
-// Rota PATCH para atualizar personalização do perfil (Bio, Foto e Cor do Banner)
+// Rota PATCH para atualizar personalização do perfil e dados do leitor
 app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
   try {
-    const { nome, bio, fotoUrl, corBanner } = req.body;
+    const { nome, bio, fotoUrl, corBanner, notificarEmail, notificarWhatsapp, whatsapp } = req.body;
     const dadosAtualizar = {};
 
     if (nome !== undefined) {
@@ -166,6 +169,18 @@ app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
       dadosAtualizar.corBanner = corBanner;
     }
 
+    if (notificarEmail !== undefined) {
+      dadosAtualizar.notificarEmail = Boolean(notificarEmail);
+    }
+
+    if (notificarWhatsapp !== undefined) {
+      dadosAtualizar.notificarWhatsapp = Boolean(notificarWhatsapp);
+    }
+
+    if (whatsapp !== undefined) {
+      dadosAtualizar.whatsapp = whatsapp ? String(whatsapp).trim() : null;
+    }
+
     const usuarioAtualizado = await prisma.usuario.update({
       where: { id: req.usuario.id },
       data: dadosAtualizar,
@@ -177,6 +192,9 @@ app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
         bio: true,
         fotoUrl: true,
         corBanner: true,
+        notificarEmail: true,
+        notificarWhatsapp: true,
+        whatsapp: true,
       },
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, BookMarked, Gift, Heart, LogIn, BellRing, Trash2 } from 'lucide-react';
+import { User, BookMarked, Gift, Heart, LogIn, BellRing, Trash2, CheckCircle2, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function UserSidebarCard({
@@ -9,9 +9,11 @@ export default function UserSidebarCard({
   livrosPegos = [],
   livrosDoados = [],
   favoritos = [],
+  livrosDisponiveis = [],
   onRemoverFavorito,
   onRedoarLivro,
   onExcluirLivro,
+  onPegarLivro,
 }) {
   if (!usuario) {
     return (
@@ -101,8 +103,23 @@ export default function UserSidebarCard({
             {abaLateral === 'favoritos' && '❤️ Lista de Desejos:'}
           </span>
           {abaLateral === 'favoritos' && (
-            <span className="notif-badge" title="Você será avisado por E-mail e WhatsApp quando o livro chegar na Estante Geral">
-              <BellRing size={12} /> Alerta Ativo
+            <span
+              className={`notif-badge ${(!usuario.notificarEmail && !usuario.notificarWhatsapp) ? 'notif-badge-disabled' : ''}`}
+              title={
+                usuario.notificarWhatsapp && usuario.notificarEmail
+                  ? `Avisos ativados por E-mail (${usuario.email}) e WhatsApp: ${usuario.whatsapp || 'configurado'}`
+                  : usuario.notificarWhatsapp
+                  ? `Avisos ativados por WhatsApp: ${usuario.whatsapp || 'configurado'}`
+                  : usuario.notificarEmail
+                  ? `Avisos ativados por E-mail (${usuario.email})`
+                  : 'Nenhum canal de notificação ativo. Configure em Dados do Leitor.'
+              }
+            >
+              <BellRing size={12} />
+              {usuario.notificarWhatsapp && usuario.notificarEmail && ' E-mail + WhatsApp'}
+              {!usuario.notificarWhatsapp && usuario.notificarEmail && ' Alerta E-mail'}
+              {usuario.notificarWhatsapp && !usuario.notificarEmail && ' Alerta WhatsApp'}
+              {!usuario.notificarWhatsapp && !usuario.notificarEmail && ' Alertas Inativos'}
             </span>
           )}
         </div>
@@ -111,50 +128,79 @@ export default function UserSidebarCard({
           <p className="sidebar-empty-msg">Nenhum livro nesta lista ainda.</p>
         ) : (
           <ul className="sidebar-items-list">
-            {listaAtual.map((item) => (
-              <li key={item.id} className="sidebar-book-item">
-                <div className="sidebar-book-text">
-                  <strong className="sidebar-book-title" title={item.titulo}>{item.titulo}</strong>
-                  <span className="sidebar-book-author">{item.autor}</span>
-                </div>
+            {listaAtual.map((item) => {
+              // Verifica se este livro favorito está disponível na estante geral no momento
+              const livroNaEstante = abaLateral === 'favoritos' && livrosDisponiveis.find(
+                l => l.disponivel && (
+                  l.id === item.id ||
+                  l.titulo.toLowerCase().trim() === item.titulo.toLowerCase().trim()
+                )
+              );
 
-                <div className="sidebar-item-actions">
-                  {/* Na aba Pegos: Botão para Redoar (Colocar para circular de novo) */}
-                  {abaLateral === 'pegos' && onRedoarLivro && (
-                    <button
-                      className="btn-sidebar-redoar"
-                      onClick={() => onRedoarLivro(item)}
-                      title="Colocar para doar novamente (Passar para a frente!)"
-                    >
-                      <Gift size={14} />
-                      <span>Doar</span>
-                    </button>
-                  )}
+              return (
+                <li key={item.id || item.titulo} className={`sidebar-book-item ${livroNaEstante ? 'item-chegou-estante' : ''}`}>
+                  <div className="sidebar-book-text">
+                    <strong className="sidebar-book-title" title={item.titulo}>{item.titulo}</strong>
+                    <span className="sidebar-book-author">{item.autor}</span>
 
-                  {/* Botão de Excluir para livros sob posse ou doados */}
-                  {(abaLateral === 'pegos' || abaLateral === 'doados') && onExcluirLivro && (
-                    <button
-                      className="btn-sidebar-delete"
-                      onClick={() => onExcluirLivro(item.id)}
-                      title="Excluir livro"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                    {/* Tag verde indicando que o exemplar acabou de chegar na Estante Geral */}
+                    {livroNaEstante && (
+                      <span className="badge-livro-chegou">
+                        <CheckCircle2 size={11} /> Chegou na Estante!
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Na aba Favoritos: Remover da lista */}
-                  {abaLateral === 'favoritos' && onRemoverFavorito && (
-                    <button
-                      className="btn-remove-fav"
-                      onClick={() => onRemoverFavorito(item.id)}
-                      title="Remover dos favoritos"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                  <div className="sidebar-item-actions">
+                    {/* Se o livro favorito já está na estante, botão direto para resgatar! */}
+                    {livroNaEstante && onPegarLivro && (
+                      <button
+                        className="btn-sidebar-pegar-fav"
+                        onClick={() => onPegarLivro(livroNaEstante)}
+                        title="Resgatar exemplar agora!"
+                      >
+                        <BookOpen size={13} />
+                        <span>Pegar</span>
+                      </button>
+                    )}
+
+                    {/* Na aba Pegos: Botão para Redoar (Colocar para circular de novo) */}
+                    {abaLateral === 'pegos' && onRedoarLivro && (
+                      <button
+                        className="btn-sidebar-redoar"
+                        onClick={() => onRedoarLivro(item)}
+                        title="Colocar para doar novamente (Passar para a frente!)"
+                      >
+                        <Gift size={14} />
+                        <span>Doar</span>
+                      </button>
+                    )}
+
+                    {/* Botão de Excluir para livros sob posse ou doados */}
+                    {(abaLateral === 'pegos' || abaLateral === 'doados') && onExcluirLivro && (
+                      <button
+                        className="btn-sidebar-delete"
+                        onClick={() => onExcluirLivro(item.id)}
+                        title="Excluir livro"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+
+                    {/* Na aba Favoritos: Remover da lista */}
+                    {abaLateral === 'favoritos' && onRemoverFavorito && (
+                      <button
+                        className="btn-remove-fav"
+                        onClick={() => onRemoverFavorito(item.id || item.titulo)}
+                        title="Remover dos favoritos"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

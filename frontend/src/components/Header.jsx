@@ -132,11 +132,6 @@ export default function Header({ darkMode, setDarkMode, onAuthChange }) {
                     </button>
                   </div>
                 )}
-
-                {/* Botão de Sair fixo ao lado */}
-                <button onClick={handleLogout} className="btn-logout" title="Sair da conta">
-                  <LogOut size={18} />
-                </button>
               </div>
             ) : (
               <Link to="/login" className="btn-login">
