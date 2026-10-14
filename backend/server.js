@@ -140,8 +140,16 @@ app.get("/auth/me", autenticarToken, async (req, res) => {
 // Rota PATCH para atualizar personalização do perfil (Bio, Foto e Cor do Banner)
 app.patch("/usuarios/perfil", autenticarToken, async (req, res) => {
   try {
-    const { bio, fotoUrl, corBanner } = req.body;
+    const { nome, bio, fotoUrl, corBanner } = req.body;
     const dadosAtualizar = {};
+
+    if (nome !== undefined) {
+      const nomeLimpo = String(nome).trim();
+      if (!nomeLimpo) {
+        return res.status(400).json({ erro: "O nome não pode ser vazio." });
+      }
+      dadosAtualizar.nome = nomeLimpo;
+    }
 
     if (bio !== undefined) {
       if (bio.length > 300) {
