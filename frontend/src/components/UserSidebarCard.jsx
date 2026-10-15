@@ -122,10 +122,10 @@ export default function UserSidebarCard({
         ) : (
           <ul className="sidebar-items-list">
             {listaAtual.map((item) => {
-              // Verifica se este livro favorito está disponível na estante geral no momento
+              // Verifica se este livro favorito está disponível na estante geral no momento (por título)
               const livroNaEstante = abaLateral === 'favoritos' && livrosDisponiveis.find(
                 l => l.disponivel && (
-                  l.id === item.id ||
+                  l.titulo && item.titulo &&
                   l.titulo.toLowerCase().trim() === item.titulo.toLowerCase().trim()
                 )
               );

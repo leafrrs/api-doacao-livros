@@ -164,17 +164,17 @@ export default function Home() {
 
     const tituloNormalizado = (livro.titulo || '').toLowerCase().trim();
     const jaFavorito = favoritos.some(
-      f => (f.id && livro.id && f.id === livro.id) || (f.titulo && f.titulo.toLowerCase().trim() === tituloNormalizado)
+      f => f.titulo && f.titulo.toLowerCase().trim() === tituloNormalizado
     );
 
     if (jaFavorito) {
       setFavoritos(prev => prev.filter(
-        f => (f.id && livro.id ? f.id !== livro.id : f.titulo.toLowerCase().trim() !== tituloNormalizado)
+        f => (f.titulo || '').toLowerCase().trim() !== tituloNormalizado
       ));
       setFeedback({ tipo: 'info', mensagem: `"${livro.titulo}" removido dos seus favoritos.` });
 
       // Sincroniza remoção no backend
-      apiRequest(`/favoritos/${encodeURIComponent(livro.id || livro.titulo)}`, {
+      apiRequest(`/favoritos/${encodeURIComponent(livro.titulo)}`, {
         method: 'DELETE',
       }).catch(err => console.warn('Erro ao remover favorito no servidor:', err));
     } else {
