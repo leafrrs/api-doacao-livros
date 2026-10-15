@@ -175,6 +175,19 @@ A interface web estará disponível em: `http://localhost:5173`
 
 ---
 
+## 🔑 Credenciais de Acesso para Testes
+
+O script de *seed* do banco de dados (`node prisma/seed.js`) já cadastra previamente duas contas prontas para você homologar os fluxos da aplicação (como leitor e como moderador):
+
+| Papel (Role) | E-mail | Senha | O que você pode testar |
+| :--- | :--- | :--- | :--- |
+| 🛡️ **Administrador** | `admin@reconecta.com` | `Admin@1234` | Permissão total para editar ou excluir qualquer livro da Estante Geral (moderação do acervo comunitário). |
+| 📖 **Leitor Comum** | `leitor@reconecta.com` | `Leitor@1234` | Fluxo completo de doação, resgate de livros, gestão da Lista de Desejos e personalização do próprio perfil. |
+
+> 💡 **Dica:** Você também pode clicar em **"Cadastre-se"** na tela de login para criar uma conta do zero com seu próprio nome e e-mail!
+
+---
+
 ## 💻 Recursos da Interface Front-End
 
 - **Painel Lateral do Leitor:** Avatar com profundidade, bio customizável, seletor de paleta de cores para o banner e 3 abas dinâmicas (**Pegos**, **Doados** e **Favoritos com rolagem independente**);
