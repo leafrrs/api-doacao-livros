@@ -20,19 +20,20 @@ Além disso, a plataforma conta com uma **lógica de circulação**: quando um u
 
 ### Back-End
 - **Node.js** — ambiente de execução JavaScript;
-- **Express** — criação do servidor REST e middlewares;
+- **Express** — criação do servidor REST, roteamento e middlewares;
 - **Prisma ORM** — modelagem e comunicação com o banco de dados;
 - **SQLite** — banco de dados relacional leve e embutido;
 - **bcryptjs** — geração e validação de hashes seguros de senhas;
-- **jsonwebtoken (JWT)** — autenticação e emissão de tokens de acesso;
-- **CORS** — liberação de comunicação entre o front-end e a API;
+- **jsonwebtoken (JWT)** — autenticação stateless e emissão de tokens de acesso;
+- **Nodemailer** — serviço automatizado de envio de e-mails transacionais (notificações de livros);
+- **CORS** — liberação de comunicação segura entre o front-end e a API;
 - **Fetch API nativa** — integração com o catálogo da Open Library.
 
 ### Front-End
 - **React** (com **Vite**) — interface modular, moderna e rápida;
 - **React Router Dom** — roteamento de páginas sem recarregamento;
 - **Lucide React** — ícones em vetor leves e consistentes;
-- **CSS3 Design System** — layout responsivo com suporte a **Modo Claro** e **Modo Escuro (Dark Mode)**.
+- **CSS3 Design System** — layout responsivo com suporte a **Modo Claro** e **Modo Escuro (Dark Mode)**, glassmorphism e animações fluidas.
 
 ---
 
@@ -44,17 +45,19 @@ O projeto é organizado de forma modular, separando claramente as responsabilida
 api-doacao-livros/
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma       # Modelos Usuario e Livro
+│   │   ├── schema.prisma       # Modelos Usuario, Livro e Favorito
 │   │   ├── migrations/         # Histórico de migrações SQL
 │   │   └── seed.js             # Semeador de usuários com hash e ADMIN inicial
+│   ├── services/
+│   │   └── notificacaoService.js # Envio de e-mails com templates HTML responsivos
 │   ├── .env.example            # Modelo das variáveis de ambiente
 │   ├── package.json
 │   └── server.js               # Rotas, validações (Fail Fast) e middlewares JWT
 ├── frontend/
 │   ├── src/
-│   │   ├── components/         # Header, Footer, BookCard, SearchBar, Sidebar
+│   │   ├── components/         # Header, Footer, BookCard, SearchBar, Sidebar, Modais
 │   │   ├── pages/              # Home, Login, RegisterUser, RegisterBook
-│   │   ├── services/api.js     # Cliente HTTP com injeção automática de JWT
+│   │   ├── services/api.js     # Cliente HTTP com injeção de JWT e isolamento de cache
 │   │   ├── App.jsx             # Roteamento e persistência de tema
 │   │   └── index.css           # Estilos globais e tokens de cores
 │   └── package.json
@@ -65,26 +68,27 @@ api-doacao-livros/
 
 ---
 
-## 🔒 Autenticação e Regras de Permissão (RBAC)
+## 🔒 Autenticação e Regras de Segurança
 
-O sistema conta com dois níveis de acesso baseados em papéis:
-- **`USER` (Leitor Comum):** Pode consultar a estante pública, cadastrar doações em seu próprio nome, pegar livros disponíveis e editar/excluir somente os exemplares sob sua posse.
+O sistema implementa autenticação via JWT e controle de permissões por papéis (RBAC):
+- **`USER` (Leitor Comum):** Pode consultar a estante pública, cadastrar doações, resgatar livros disponíveis, gerenciar sua Lista de Desejos e editar/excluir somente os exemplares sob sua posse.
 - **`ADMIN` (Administrador):** Possui permissão de moderação do acervo, podendo editar ou excluir livros de qualquer usuário.
 
 ### Medidas de Segurança Adotadas:
 1. **Hash de senhas:** Nenhuma senha é salva em texto puro. Utiliza-se `bcryptjs` com salt round de 10.
 2. **Proteção contra enumeração:** Respostas de erro no login utilizam mensagens genéricas (`401 Credenciais inválidas.`).
-3. **Prevenção de escalonamento:** O cadastro público de usuários força sempre o papel `USER`, mesmo que o cliente tente injetar `role: "ADMIN"`.
+3. **Prevenção de escalonamento:** O cadastro público força sempre o papel `USER`, mesmo que haja tentativa de injeção de `role: "ADMIN"`.
 4. **Criação controlada do Administrador:** O primeiro admin é gerado através de script seguro de seed (`backend/prisma/seed.js`).
-5. **Dados protegidos:** Respostas da API nunca expõem senhas ou hashes criptográficos.
+5. **Troca e Exclusão Seguras:** Alteração de senha e deleção de conta exigem a confirmação da senha atual antes de processar.
+6. **Dados protegidos:** Respostas da API nunca expõem senhas ou hashes criptográficos.
 
 ---
 
 ## 📖 Ciclo de Vida do Livro: Catálogo x Exemplar
 
 O projeto separa com clareza os conceitos de domínio:
-1. **Dados Bibliográficos:** Título, autor, ano de publicação, capa oficial e ISBN. São obtidos via integração com a Open Library e não podem ser adulterados no exemplar.
-2. **Exemplar Físico:** É a cópia real disponibilizada pelo doador, possuindo:
+1. **Dados Bibliográficos:** Título, autor, ano de publicação, capa oficial e ISBN. Obtidos via integração com a Open Library e imutáveis no exemplar.
+2. **Exemplar Físico:** É a cópia real disponibilizada pelo doador:
    - `condicao`: Estado físico (`NOVO`, `SEMINOVO`, `BOM_ESTADO`, `MARCAS_DE_USO`, `DESGASTADO`);
    - `relatoLeitura`: Depoimento do leitor sobre o impacto da obra (máx. 2.000 caracteres);
    - `disponivel`: Status de circulação (`true` para livre na estante; `false` quando resgatado).
@@ -93,22 +97,30 @@ O projeto separa com clareza os conceitos de domínio:
 
 ## 📍 Endpoints da API
 
-### Autenticação & Usuários
+### Autenticação & Perfil do Leitor
 * `POST /usuarios`: Cadastro público de novo leitor comum.
 * `POST /auth/login`: Autentica o usuário e emite o token JWT.
 * `GET /auth/me`: Retorna os dados do leitor autenticado (requer token).
-* `PATCH /usuarios/perfil`: Atualiza a personalização do leitor (bio, foto e cor do banner).
+* `PATCH /usuarios/perfil`: Atualiza bio, foto de perfil e cor do banner.
+* `PATCH /usuarios/senha`: Altera a senha do leitor com validação da senha atual.
+* `DELETE /usuarios/conta`: Exclui a conta do usuário e limpa seus registros após checagem de senha.
 
 ### Catálogo Externo (Open Library)
 * `GET /livros/buscar?titulo=nome-do-livro`: Consulta edições em português com retorno normalizado.
-* `GET /livros/buscar/isbn/:isbn`: Busca detalhada por código ISBN-10 ou ISBN-13 (com ou sem hífens).
+* `GET /livros/buscar/isbn/:isbn`: Busca detalhada por código ISBN-10 ou ISBN-13.
 
 ### Gerenciamento de Livros
 * `GET /livros`: Retorna todos os livros atualmente disponíveis para resgate na Estante Geral.
 * `GET /livros/meus`: Retorna os livros associados ao usuário logado (requer token).
-* `POST /livros`: Cadastra um exemplar para doação, vinculando ao `usuarioId` do token.
-* `PATCH /livros/:id`: Edita os dados do exemplar (condição e relato) ou realiza a ação de resgate (`{ "acao": "pegar" }`).
+* `POST /livros`: Cadastra um exemplar para doação (dispara notificações para interessados).
+* `PATCH /livros/:id`: Edita os dados do exemplar ou realiza o resgate (`{ "acao": "pegar" }`).
 * `DELETE /livros/:id`: Remove um exemplar (permitido apenas ao proprietário ou ao administrador).
+
+### Lista de Desejos (Favoritos) & Notificações
+* `GET /favoritos`: Retorna os livros favoritados pelo usuário logado.
+* `POST /favoritos`: Adiciona um livro à Lista de Desejos (com opção de alerta por e-mail).
+* `DELETE /favoritos/:idOuTitulo`: Remove um livro da Lista de Desejos.
+* `POST /notificacoes/testar`: Dispara um e-mail de teste para o endereço cadastrado do leitor.
 
 ---
 
@@ -126,7 +138,7 @@ cd api-doacao-livros
 ```
 
 ### 2. Configurar e Iniciar o Back-End
-Entre na pasta do backend:
+Entre na pasta do backend e instale as dependências:
 ```bash
 cd backend
 npm install
@@ -150,9 +162,7 @@ Inicie o servidor da API:
 ```bash
 npm start
 ```
-*O servidor estará operando em: `http://localhost:3000`*
-
----
+O servidor estará operando em: `http://localhost:3000`
 
 ### 3. Iniciar o Front-End
 Em uma nova janela de terminal, entre na pasta do frontend:
@@ -161,38 +171,35 @@ cd frontend
 npm install
 npm run dev
 ```
-*A interface web estará disponível em: `http://localhost:5173`*
+A interface web estará disponível em: `http://localhost:5173`
 
 ---
 
-## 💻 Interface Front-End (Wireframe Implementado)
+## 💻 Recursos da Interface Front-End
 
-A interface do usuário foi projetada com base em wireframe modular, contando com:
-- **Painel Lateral do Leitor:** Avatar com profundidade, bio customizável, seletor de paleta de cores para o banner superior e 3 abas interativas (**Pegos**, **Doados** e **Favoritos**);
-- **Lista de Desejos (Favoritos):** Permite favoritar livros com 1 clique no coração ❤️ e ativa alertas de notificação;
-- **Vitrine Central:** Estante Geral fluida com cards de livros, capas dinâmicas e badges de condição física;
-- **Autocomplete Inteligente:** Na tela de doação, a pesquisa no catálogo sugere obras em tempo real conforme a digitação;
-- **Notificações Flutuantes (Toasts):** Mensagens de sucesso ou erro que surgem sem empurrar os elementos da tela e desaparecem sozinhas após 5 segundos.
+- **Painel Lateral do Leitor:** Avatar com profundidade, bio customizável, seletor de paleta de cores para o banner e 3 abas dinâmicas (**Pegos**, **Doados** e **Favoritos com rolagem independente**);
+- **Lista de Desejos Isolada por Conta:** Cada usuário possui sua própria lista salva de forma segura e sincronizada com o backend;
+- **Integração com Busca Global:** Ao buscar um livro que ainda não está na estante local, o sistema consulta a Open Library em tempo real e permite adicioná-lo à Lista de Desejos;
+- **Alerta Flutuante de Livro Chegando:** Notificação com efeito de vidro (*glassmorphism*) sobreposta aos cards por 5 segundos quando um livro da sua lista entra na estante;
+- **Central de Segurança no Perfil:** Modal exclusivo para alteração de senha e zona de perigo para exclusão permanente de conta;
+- **Tema Claro / Escuro:** Alternância de tema com persistência no navegador.
 
 ---
 
 ## 📮 Collection do Postman
 
 Para facilitar a validação e homologação dos contratos de API, o arquivo atualizado da Collection está disponível na raiz do repositório:
-```text
-API Doação de Livros.postman_collection.json
-```
-Basta importá-lo no Postman para testar os fluxos de Login, Cadastro, Consultas, Atualizações Parciais e Exclusões protegidas.
+`API Doação de Livros.postman_collection.json`
+
+Basta importá-lo no Postman para testar os fluxos de Login, Cadastro, Consultas, Atualizações Parciais, Favoritos e Exclusões protegidas.
 
 ---
 
-## 🚧 Limitações e Próximos Passos
+## 🚧 Próximos Passos & Evolução
 
-Como evolução contínua da aplicação, estão mapeadas para as próximas versões:
-- Integração real com serviços de mensageria para envio de e-mails (ex: Nodemailer/SendGrid) e WhatsApp API para a lista de desejos;
-- Paginação com rolagem infinita na Estante Geral;
-- Separação da arquitetura do backend no padrão MVC (Controllers, Services e Repositories);
-- Upload direto de imagens de capa para armazenamento em nuvem (ex: AWS S3 ou Cloudinary).
+- [ ] Paginação com rolagem infinita na Estante Geral;
+- [ ] Separação da arquitetura do backend no padrão MVC puro (Controllers, Services e Repositories);
+- [ ] Armazenamento de capas em bucket na nuvem (AWS S3 ou Cloudinary).
 
 ---
 
@@ -205,8 +212,8 @@ Este projeto apoia diretamente o **Objetivo de Desenvolvimento Sustentável 4 (E
 ## 👨‍💻 Autor
 
 **Rafael Rodrigues dos Santos**  
-- 💼 **LinkedIn:** [rafael-rodrigues-dos-santos-rrs](https://www.linkedin.com/in/rafael-rodrigues-dos-santos-rrs)  
-- 🐙 **GitHub:** [leafrrs](https://github.com/leafrrs)  
-- ✉️ **E-mail:** [Rafael.r_rs@hotmail.com](mailto:Rafael.r_rs@hotmail.com)  
+💼 LinkedIn: [rafael-rodrigues-dos-santos-rrs](https://www.linkedin.com/in/rafael-rodrigues-dos-santos-rrs)  
+🐙 GitHub: [leafrrs](https://github.com/leafrrs)  
+✉️ E-mail: [Rafael.r_rs@hotmail.com](mailto:Rafael.r_rs@hotmail.com)  
 
-*Projeto desenvolvido durante o programa acadêmico da **Recode**.*
+*Projeto desenvolvido durante o programa acadêmico da Recode.*
